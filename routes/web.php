@@ -1,0 +1,84 @@
+<?php
+
+use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\AdminUserController;
+use App\Http\Controllers\AdminFeedbackQuestionController;
+use App\Http\Controllers\AuthController;
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\ExamController;
+use App\Http\Controllers\FeedbackController;
+use App\Http\Controllers\FeedbackReportController;
+use App\Http\Controllers\LecturerClassController;
+use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\QuestionSetController;
+use App\Http\Controllers\ScoreboardController;
+use App\Http\Middleware\RoleMiddleware;
+use App\Http\Controllers\ScenarioController;
+
+Route::get('/', function () {
+    return redirect()->route('dashboard');
+});
+
+Route::middleware('guest')->group(function () {
+    Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
+    Route::post('/login', [AuthController::class, 'login'])->name('login.store');
+});
+
+Route::middleware('auth')->group(function () {
+    Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+    Route::get('/dashboard', DashboardController::class)->name('dashboard');
+    Route::get('/profile', [ProfileController::class, 'show'])->name('profile');
+    Route::put('/profile', [ProfileController::class, 'update'])->name('profile.update');
+
+    Route::middleware(RoleMiddleware::class . ':student')->group(function () {
+        Route::get('/scenarios', [ScenarioController::class, 'index'])->name('scenarios');
+        Route::get('/scenarios/{scenario}', [ScenarioController::class, 'show'])->name('scenarios.show');
+        Route::post('/scenarios/{scenario}/hint', [ScenarioController::class, 'showHint'])->name('scenarios.hint');
+        Route::post('/scenarios/{scenario}/check', [ScenarioController::class, 'check'])->name('scenarios.check');
+        Route::get('/results', [ExamController::class, 'results'])->name('results');
+        Route::get('/feedback', [FeedbackController::class, 'form'])->name('feedback.form');
+        Route::post('/feedback', [FeedbackController::class, 'submit'])->name('feedback.submit');
+    });
+
+    Route::middleware(RoleMiddleware::class . ':lecturer')->group(function () {
+        Route::post('/lecturer/classes', [LecturerClassController::class, 'store'])->name('lecturer.classes.store');
+        Route::get('/lecturer/classes/{schoolClass}', [LecturerClassController::class, 'show'])->name('lecturer.classes.show');
+        Route::get('/lecturer/classes/{schoolClass}/edit', [LecturerClassController::class, 'edit'])->name('lecturer.classes.edit');
+        Route::put('/lecturer/classes/{schoolClass}', [LecturerClassController::class, 'update'])->name('lecturer.classes.update');
+        Route::delete('/lecturer/classes/{schoolClass}', [LecturerClassController::class, 'destroy'])->name('lecturer.classes.destroy');
+        Route::post('/lecturer/classes/{schoolClass}/students', [LecturerClassController::class, 'uploadStudents'])->name('lecturer.classes.students.upload');
+    });
+
+    Route::middleware(RoleMiddleware::class . ':admin')->group(function () {
+        Route::get('/admin/users', [AdminUserController::class, 'index'])->name('admin.users.index');
+        Route::get('/admin/users/create/lecturer', [AdminUserController::class, 'createLecturer'])->name('admin.users.create-lecturer');
+        Route::get('/admin/users/create/student', [AdminUserController::class, 'createStudent'])->name('admin.users.create-student');
+        Route::post('/admin/users', [AdminUserController::class, 'store'])->name('admin.users.store');
+        Route::get('/admin/users/{user}/edit', [AdminUserController::class, 'edit'])->name('admin.users.edit');
+        Route::put('/admin/users/{user}', [AdminUserController::class, 'update'])->name('admin.users.update');
+        Route::put('/admin/users/{user}/password', [AdminUserController::class, 'resetPassword'])->name('admin.users.password');
+        Route::get('/admin/classes', [LecturerClassController::class, 'index'])->name('admin.classes.index');
+        Route::post('/admin/classes', [LecturerClassController::class, 'store'])->name('admin.classes.store');
+        Route::get('/admin/classes/{schoolClass}', [LecturerClassController::class, 'show'])->name('admin.classes.show');
+        Route::get('/admin/classes/{schoolClass}/edit', [LecturerClassController::class, 'edit'])->name('admin.classes.edit');
+        Route::put('/admin/classes/{schoolClass}', [LecturerClassController::class, 'update'])->name('admin.classes.update');
+        Route::delete('/admin/classes/{schoolClass}', [LecturerClassController::class, 'destroy'])->name('admin.classes.destroy');
+        Route::post('/admin/classes/{schoolClass}/students', [LecturerClassController::class, 'uploadStudents'])->name('admin.classes.students.upload');
+        Route::get('/admin/feedback/questions', [AdminFeedbackQuestionController::class, 'index'])->name('admin.feedback.index');
+        Route::get('/admin/feedback/questions/create', [AdminFeedbackQuestionController::class, 'create'])->name('admin.feedback.create');
+        Route::post('/admin/feedback/questions', [AdminFeedbackQuestionController::class, 'store'])->name('admin.feedback.store');
+        Route::get('/admin/feedback/questions/{feedbackQuestion}/edit', [AdminFeedbackQuestionController::class, 'edit'])->name('admin.feedback.edit');
+        Route::put('/admin/feedback/questions/{feedbackQuestion}', [AdminFeedbackQuestionController::class, 'update'])->name('admin.feedback.update');
+        Route::delete('/admin/feedback/questions/{feedbackQuestion}', [AdminFeedbackQuestionController::class, 'destroy'])->name('admin.feedback.destroy');
+        Route::put('/admin/feedback/questions/{feedbackQuestion}/toggle', [AdminFeedbackQuestionController::class, 'toggle'])->name('admin.feedback.toggle');
+    });
+
+    Route::middleware(RoleMiddleware::class . ':admin,lecturer')->group(function () {
+        Route::get('/leaderboard', [ExamController::class, 'leaderboard'])->name('leaderboard');
+        Route::get('/scoreboard', [ScoreboardController::class, 'index'])->name('scoreboard');
+        Route::get('/feedback/summary', [FeedbackReportController::class, 'dashboard'])->name('feedback.summary');
+        Route::get('/feedback/raw', [FeedbackReportController::class, 'raw'])->name('feedback.raw');
+        Route::get('/feedback/raw/export', [FeedbackReportController::class, 'export'])->name('feedback.raw.export');
+        Route::get('/question-sets', [QuestionSetController::class, 'index'])->name('question-sets.index');
+    });
+});
