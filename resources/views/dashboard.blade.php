@@ -40,8 +40,15 @@
 
     <div class="card border-0 shadow-sm mt-4">
         <div class="card-body">
-            <h2 class="h5">Welcome to ShellFix</h2>
-            <p class="mb-0 text-secondary">Use the sidebar to explore scenarios, submit answers, and review your results.</p>
+            <div class="d-flex justify-content-between align-items-center gap-3 flex-wrap">
+                <div>
+                    <h2 class="h5">Welcome to ShellFix</h2>
+                    <p class="mb-0 text-secondary">Use the sidebar to explore scenarios, submit answers, and review your results.</p>
+                </div>
+                @if (auth()->user()->isStudent() && $terminalRunning)
+                    <a href="{{ route('terminal.index') }}" class="btn btn-primary">Launch Terminal</a>
+                @endif
+            </div>
         </div>
     </div>
 

@@ -104,7 +104,7 @@ class LecturerClassController extends Controller
         ]);
 
         $handle = fopen($request->file('students_csv')->getRealPath(), 'r');
-        $headers = array_map('trim', fgetcsv($handle) ?: []);
+        $headers = array_map(fn ($header) => trim((string) $header), fgetcsv($handle) ?: []);
         $requiredHeaders = ['name', 'matric_no', 'email', 'password'];
         $total = 0;
         $success = 0;
@@ -112,8 +112,9 @@ class LecturerClassController extends Controller
         $errors = [];
         $seenEmails = [];
         $seenMatricNos = [];
+        $lineNumber = 1;
 
-        if (array_diff($requiredHeaders, $headers)) {
+        if ($headers !== $requiredHeaders) {
             fclose($handle);
 
             return back()->with('import_summary', [
@@ -125,9 +126,23 @@ class LecturerClassController extends Controller
         }
 
         while (($row = fgetcsv($handle)) !== false) {
+            $lineNumber++;
+            $rowNumber = $lineNumber;
+            $row = array_map(fn ($value) => trim((string) $value), $row);
+
+            if (count(array_filter($row, fn ($value) => $value !== '')) === 0) {
+                continue;
+            }
+
             $total++;
+
+            if (count($row) !== count($headers)) {
+                $skipped++;
+                $errors[] = ['row' => $rowNumber, 'reason' => 'Column count mismatch'];
+                continue;
+            }
+
             $data = array_combine($headers, $row);
-            $rowNumber = $total + 1;
 
             $validator = Validator::make($data ?: [], [
                 'name' => ['required', 'string', 'max:255'],

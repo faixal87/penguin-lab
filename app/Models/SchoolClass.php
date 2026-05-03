@@ -16,6 +16,11 @@ class SchoolClass extends Model
         'lecturer_id',
         'class_name',
         'course_code',
+        'terminal_enabled',
+    ];
+
+    protected $casts = [
+        'terminal_enabled' => 'boolean',
     ];
 
     public function lecturer(): BelongsTo

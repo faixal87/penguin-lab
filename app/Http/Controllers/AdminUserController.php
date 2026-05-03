@@ -5,7 +5,9 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -89,6 +91,94 @@ class AdminUserController extends Controller
         return back()->with('status', 'Password reset successfully.');
     }
 
+    public function destroy(Request $request, User $user): RedirectResponse
+    {
+        $result = $this->deleteUserSafely($user, $request->user()->id);
+
+        $redirect = redirect()->route('admin.users.index', $request->only(['search', 'per_page', 'page']));
+
+        if (! $result['deleted']) {
+            return $redirect->with('error', $result['reason']);
+        }
+
+        return $redirect->with('status', 'User deleted successfully.');
+    }
+
+    public function batchDestroy(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'user_ids' => ['required', 'array', 'min:1'],
+            'user_ids.*' => ['integer', 'exists:users,id'],
+        ]);
+
+        $deleted = 0;
+        $skipped = [];
+        $users = User::whereIn('id', $validated['user_ids'])->get();
+
+        foreach ($users as $user) {
+            $result = $this->deleteUserSafely($user, $request->user()->id);
+
+            if ($result['deleted']) {
+                $deleted++;
+            } else {
+                $skipped[] = [
+                    'user' => $user->name . ' (' . $user->email . ')',
+                    'reason' => $result['reason'],
+                ];
+            }
+        }
+
+        $skippedCount = count($skipped);
+        $message = "Batch delete complete. Deleted: {$deleted}. Skipped: {$skippedCount}.";
+
+        return redirect()
+            ->route('admin.users.index', $request->only(['search', 'per_page', 'page']))
+            ->with('status', $message)
+            ->with('delete_summary', [
+                'deleted' => $deleted,
+                'skipped' => $skippedCount,
+                'skipped_users' => $skipped,
+            ]);
+    }
+
+    private function deleteUserSafely(User $user, int $currentAdminId): array
+    {
+        if ($user->id === $currentAdminId) {
+            return [
+                'deleted' => false,
+                'reason' => 'You cannot delete your own admin account while logged in.',
+            ];
+        }
+
+        if ($user->isLecturer() && $user->teachingClasses()->exists()) {
+            return [
+                'deleted' => false,
+                'reason' => 'Lecturer owns classes. Reassign or delete those classes first.',
+            ];
+        }
+
+        DB::transaction(function () use ($user) {
+            $this->deleteRowsByColumn('class_student', 'student_id', $user->id);
+            $this->deleteRowsByColumn('student_answers', 'user_id', $user->id);
+            $this->deleteRowsByColumn('login_logs', 'user_id', $user->id);
+            $this->deleteRowsByColumn('feedback_answers', 'user_id', $user->id);
+
+            $user->delete();
+        });
+
+        return [
+            'deleted' => true,
+            'reason' => null,
+        ];
+    }
+
+    private function deleteRowsByColumn(string $table, string $column, int $userId): void
+    {
+        if (Schema::hasTable($table) && Schema::hasColumn($table, $column)) {
+            DB::table($table)->where($column, $userId)->delete();
+        }
+    }
+
     private function rules(Request $request, ?User $user, bool $creating): array
     {
         $userId = $user?->id;
@@ -107,6 +197,9 @@ class AdminUserController extends Controller
             'semester' => ['nullable', 'string', 'max:50'],
             'class_name' => ['nullable', 'string', 'max:255'],
             'department' => ['nullable', 'string', 'max:255'],
+            'linux_username' => ['nullable', 'string', 'max:255'],
+            'container_name' => ['nullable', 'string', 'max:255'],
+            'terminal_enabled' => ['nullable', 'boolean'],
         ];
     }
 }

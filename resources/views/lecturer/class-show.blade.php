@@ -8,6 +8,9 @@
     @if (session('status'))
         <div class="alert alert-success border-0 shadow-sm">{{ session('status') }}</div>
     @endif
+    @if (session('error'))
+        <div class="alert alert-danger border-0 shadow-sm">{{ session('error') }}</div>
+    @endif
 
     @if (session('import_summary'))
         @php($summary = session('import_summary'))
@@ -42,6 +45,30 @@
             </div>
         </div>
     @endif
+
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center gap-3 flex-wrap">
+                <div>
+                    <h2 class="h5 mb-1">Class Terminal Access</h2>
+                    <p class="text-secondary mb-0">
+                        Status:
+                        <span class="badge {{ $class->terminal_enabled ? 'text-bg-success' : 'text-bg-secondary' }}">
+                            {{ $class->terminal_enabled ? 'Enabled' : 'Disabled' }}
+                        </span>
+                    </p>
+                </div>
+                <form method="POST" action="{{ auth()->user()->isAdmin() ? route('admin.terminal.class-settings') : route('lecturer.terminal.settings') }}">
+                    @csrf
+                    <input type="hidden" name="class_id" value="{{ $class->id }}">
+                    <input type="hidden" name="terminal_enabled" value="{{ $class->terminal_enabled ? 0 : 1 }}">
+                    <button type="submit" class="btn {{ $class->terminal_enabled ? 'btn-outline-warning' : 'btn-primary' }}">
+                        {{ $class->terminal_enabled ? 'Disable Terminal' : 'Enable Terminal' }}
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
 
     <div class="card border-0 shadow-sm mb-4">
         <div class="card-body">
@@ -82,6 +109,11 @@
                             <th>Matric No</th>
                             <th>Email</th>
                             <th>Status</th>
+                            <th>Linux Username</th>
+                            <th>Guacamole Username</th>
+                            <th>Terminal</th>
+                            <th>Container Status</th>
+                            <th class="text-end">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -91,10 +123,36 @@
                                 <td>{{ $student->matric_no }}</td>
                                 <td>{{ $student->email }}</td>
                                 <td>{{ $student->status }}</td>
+                                <td>{{ $student->linux_username ?: '-' }}</td>
+                                <td>{{ $student->linux_username ?: '-' }}</td>
+                                <td>
+                                    <span class="badge {{ ($student->terminal_enabled || $class->terminal_enabled) ? 'text-bg-success' : 'text-bg-secondary' }}">
+                                        {{ ($student->terminal_enabled || $class->terminal_enabled) ? 'Enabled' : 'Disabled' }}
+                                    </span>
+                                </td>
+                                <td>{{ $student->container_status ?: 'not_started' }}</td>
+                                <td class="text-end">
+                                    @if ($class->terminal_enabled)
+                                        <div class="d-flex gap-2 justify-content-end flex-wrap">
+                                            <form method="POST" action="{{ route('lecturer.terminal.run', $student) }}">
+                                                @csrf
+                                                <input type="hidden" name="command_type" value="start">
+                                                <button type="submit" class="btn btn-sm btn-primary" onclick="return confirm('Start this student terminal?')">Start</button>
+                                            </form>
+                                            <form method="POST" action="{{ route('lecturer.terminal.run', $student) }}">
+                                                @csrf
+                                                <input type="hidden" name="command_type" value="stop">
+                                                <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Stop this student terminal?')">Stop</button>
+                                            </form>
+                                        </div>
+                                    @else
+                                        <span class="text-secondary small">Class terminal disabled</span>
+                                    @endif
+                                </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="4" class="text-center text-secondary py-4">No students enrolled yet.</td>
+                                <td colspan="9" class="text-center text-secondary py-4">No students enrolled yet.</td>
                             </tr>
                         @endforelse
                     </tbody>

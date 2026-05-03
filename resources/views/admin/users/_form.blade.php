@@ -82,6 +82,40 @@
         <label for="password_confirmation" class="form-label">Confirm Password</label>
         <input type="password" class="form-control" id="password_confirmation" name="password_confirmation" @if (! isset($user)) required @endif>
     </div>
+
+    <div class="col-12">
+        <div class="card border-0 shadow-sm mt-2">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+                    <div>
+                        <h2 class="h5 mb-1">Terminal Access</h2>
+                        <p class="text-secondary mb-0">Phase T2 only stores access details. Docker and Guacamole are not connected yet.</p>
+                    </div>
+                    <div class="form-check form-switch">
+                        <input type="hidden" name="terminal_enabled" value="0">
+                        <input class="form-check-input" type="checkbox" role="switch" id="terminal_enabled" name="terminal_enabled" value="1" @checked(old('terminal_enabled', $user->terminal_enabled ?? false))>
+                        <label class="form-check-label" for="terminal_enabled">Enabled</label>
+                    </div>
+                </div>
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label for="linux_username" class="form-label">Linux Username</label>
+                        <input type="text" class="form-control @error('linux_username') is-invalid @enderror" id="linux_username" name="linux_username" value="{{ old('linux_username', $user->linux_username ?? '') }}">
+                        @error('linux_username')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                    </div>
+                    <div class="col-md-6">
+                        <label for="container_name" class="form-label">Container Name</label>
+                        <input type="text" class="form-control @error('container_name') is-invalid @enderror" id="container_name" name="container_name" value="{{ old('container_name', $user->container_name ?? '') }}">
+                        @error('container_name')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                    </div>
+                    <div class="col-12">
+                        <div class="alert alert-warning mb-0">Do not store Linux passwords in ShellFix. Students will use credentials assigned outside this system.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <div class="mt-4 d-flex gap-2">

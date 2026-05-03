@@ -14,6 +14,7 @@ use App\Http\Controllers\QuestionSetController;
 use App\Http\Controllers\ScoreboardController;
 use App\Http\Middleware\RoleMiddleware;
 use App\Http\Controllers\ScenarioController;
+use App\Http\Controllers\TerminalController;
 
 Route::get('/', function () {
     return redirect()->route('dashboard');
@@ -36,6 +37,9 @@ Route::middleware('auth')->group(function () {
         Route::post('/scenarios/{scenario}/hint', [ScenarioController::class, 'showHint'])->name('scenarios.hint');
         Route::post('/scenarios/{scenario}/check', [ScenarioController::class, 'check'])->name('scenarios.check');
         Route::get('/results', [ExamController::class, 'results'])->name('results');
+        Route::get('/terminal', [TerminalController::class, 'index'])->name('terminal.index');
+        Route::post('/terminal/launch', [TerminalController::class, 'launch'])->name('terminal.launch');
+        Route::post('/terminal/stop', [TerminalController::class, 'stop'])->name('terminal.stop');
         Route::get('/feedback', [FeedbackController::class, 'form'])->name('feedback.form');
         Route::post('/feedback', [FeedbackController::class, 'submit'])->name('feedback.submit');
     });
@@ -47,15 +51,24 @@ Route::middleware('auth')->group(function () {
         Route::put('/lecturer/classes/{schoolClass}', [LecturerClassController::class, 'update'])->name('lecturer.classes.update');
         Route::delete('/lecturer/classes/{schoolClass}', [LecturerClassController::class, 'destroy'])->name('lecturer.classes.destroy');
         Route::post('/lecturer/classes/{schoolClass}/students', [LecturerClassController::class, 'uploadStudents'])->name('lecturer.classes.students.upload');
+        Route::match(['get', 'post'], '/lecturer/terminal/settings', [TerminalController::class, 'lecturerSettings'])->name('lecturer.terminal.settings');
+        Route::post('/lecturer/terminal/users/{user}/run', [TerminalController::class, 'runCommand'])->name('lecturer.terminal.run');
     });
 
     Route::middleware(RoleMiddleware::class . ':admin')->group(function () {
+        Route::match(['get', 'post'], '/admin/terminal/settings', [TerminalController::class, 'adminSettings'])->name('admin.terminal.settings');
+        Route::post('/admin/terminal/users/{user}/preview', [TerminalController::class, 'previewCommand'])->name('admin.terminal.preview');
+        Route::post('/admin/terminal/users/{user}/run', [TerminalController::class, 'runCommand'])->name('admin.terminal.run');
+        Route::post('/admin/terminal/users/{user}/sync-guacamole', [TerminalController::class, 'syncGuacamole'])->name('admin.terminal.sync-guacamole');
+        Route::post('/admin/terminal/users/{user}/reset-guacamole-password', [TerminalController::class, 'resetGuacamolePassword'])->name('admin.terminal.reset-guacamole-password');
         Route::get('/admin/users', [AdminUserController::class, 'index'])->name('admin.users.index');
         Route::get('/admin/users/create/lecturer', [AdminUserController::class, 'createLecturer'])->name('admin.users.create-lecturer');
         Route::get('/admin/users/create/student', [AdminUserController::class, 'createStudent'])->name('admin.users.create-student');
         Route::post('/admin/users', [AdminUserController::class, 'store'])->name('admin.users.store');
+        Route::delete('/admin/users/batch-delete', [AdminUserController::class, 'batchDestroy'])->name('admin.users.batch-destroy');
         Route::get('/admin/users/{user}/edit', [AdminUserController::class, 'edit'])->name('admin.users.edit');
         Route::put('/admin/users/{user}', [AdminUserController::class, 'update'])->name('admin.users.update');
+        Route::delete('/admin/users/{user}', [AdminUserController::class, 'destroy'])->name('admin.users.destroy');
         Route::put('/admin/users/{user}/password', [AdminUserController::class, 'resetPassword'])->name('admin.users.password');
         Route::get('/admin/classes', [LecturerClassController::class, 'index'])->name('admin.classes.index');
         Route::post('/admin/classes', [LecturerClassController::class, 'store'])->name('admin.classes.store');
@@ -64,6 +77,7 @@ Route::middleware('auth')->group(function () {
         Route::put('/admin/classes/{schoolClass}', [LecturerClassController::class, 'update'])->name('admin.classes.update');
         Route::delete('/admin/classes/{schoolClass}', [LecturerClassController::class, 'destroy'])->name('admin.classes.destroy');
         Route::post('/admin/classes/{schoolClass}/students', [LecturerClassController::class, 'uploadStudents'])->name('admin.classes.students.upload');
+        Route::post('/admin/terminal/class-settings', [TerminalController::class, 'lecturerSettings'])->name('admin.terminal.class-settings');
         Route::get('/admin/feedback/questions', [AdminFeedbackQuestionController::class, 'index'])->name('admin.feedback.index');
         Route::get('/admin/feedback/questions/create', [AdminFeedbackQuestionController::class, 'create'])->name('admin.feedback.create');
         Route::post('/admin/feedback/questions', [AdminFeedbackQuestionController::class, 'store'])->name('admin.feedback.store');

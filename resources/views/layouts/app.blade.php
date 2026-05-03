@@ -56,8 +56,15 @@
                     <a class="nav-link {{ request()->routeIs('dashboard') ? 'active' : '' }}" href="{{ route('dashboard') }}"><span>&#8962;</span><em>Dashboard</em></a>
                     @auth
                         @if (auth()->user()->isStudent())
+                            @php
+                                $canAccessTerminal = (bool) auth()->user()->terminal_enabled
+                                    || auth()->user()->enrolledClasses()->where('terminal_enabled', true)->exists();
+                            @endphp
                             <a class="nav-link {{ request()->routeIs('scenarios*') ? 'active' : '' }}" href="{{ route('scenarios') }}"><span>&#9000;</span><em>Scenarios</em></a>
                             <a class="nav-link {{ request()->routeIs('results') ? 'active' : '' }}" href="{{ route('results') }}"><span>&#9671;</span><em>Results</em></a>
+                            @if ($canAccessTerminal)
+                                <a class="nav-link {{ request()->routeIs('terminal.index') ? 'active' : '' }}" href="{{ route('terminal.index') }}"><span>&gt;_</span><em>Terminal</em></a>
+                            @endif
                         @endif
 
                         @if (auth()->user()->isAdmin() || auth()->user()->isLecturer())
@@ -66,6 +73,9 @@
                             <a class="nav-link {{ request()->routeIs('question-sets*') ? 'active' : '' }}" href="{{ route('question-sets.index') }}"><span>?</span><em>Question Sets</em></a>
                             <a class="nav-link {{ request()->routeIs('feedback.summary') ? 'active' : '' }}" href="{{ route('feedback.summary') }}"><span>&#10022;</span><em>Feedback Summary</em></a>
                             <a class="nav-link {{ request()->routeIs('feedback.raw') ? 'active' : '' }}" href="{{ route('feedback.raw') }}"><span>&#8801;</span><em>Raw Feedback</em></a>
+                            @if (auth()->user()->isLecturer())
+                                <a class="nav-link {{ request()->routeIs('lecturer.terminal.settings') ? 'active' : '' }}" href="{{ route('lecturer.terminal.settings') }}"><span>&gt;_</span><em>Terminal Settings</em></a>
+                            @endif
                         @endif
 
                         @if (auth()->user()->isAdmin())
@@ -76,6 +86,7 @@
                             <a class="nav-link {{ request()->routeIs('admin.users.edit') ? 'active' : '' }}" href="{{ route('admin.users.index') }}"><span>&#9998;</span><em>Edit User</em></a>
                             <a class="nav-link {{ request()->routeIs('admin.classes*') ? 'active' : '' }}" href="{{ route('admin.classes.index') }}"><span>&#9638;</span><em>Manage Classes</em></a>
                             <a class="nav-link {{ request()->routeIs('admin.feedback*') ? 'active' : '' }}" href="{{ route('admin.feedback.index') }}"><span>&#9676;</span><em>Feedback Questions</em></a>
+                            <a class="nav-link {{ request()->routeIs('admin.terminal.settings') ? 'active' : '' }}" href="{{ route('admin.terminal.settings') }}"><span>&gt;_</span><em>Terminal Settings</em></a>
                         @endif
 
                         <a class="nav-link {{ request()->routeIs('profile') ? 'active' : '' }}" href="{{ route('profile') }}"><span>&#9787;</span><em>Profile</em></a>
@@ -100,5 +111,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="{{ asset('js/shellfix-ui.js') }}"></script>
+    @stack('scripts')
 </body>
 </html>

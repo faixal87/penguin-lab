@@ -30,6 +30,13 @@ use Illuminate\Notifications\Notifiable;
     'registration_no',
     'staff_no',
     'department',
+    'linux_username',
+    'container_name',
+    'container_status',
+    'guacamole_connection_status',
+    'terminal_last_started_at',
+    'terminal_last_stopped_at',
+    'terminal_enabled',
 ])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
@@ -47,6 +54,9 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'last_login_at' => 'datetime',
+            'terminal_last_started_at' => 'datetime',
+            'terminal_last_stopped_at' => 'datetime',
+            'terminal_enabled' => 'boolean',
             'password' => 'hashed',
         ];
     }

@@ -55,6 +55,10 @@ class DashboardController extends Controller
         $hasActiveFeedbackQuestions = FeedbackQuestion::where('is_active', true)->exists();
         $shouldShowFeedbackPrompt = $hasActiveFeedbackQuestions && $totalModules > 0 && $completedModules >= $totalModules && ! $hasSubmittedFeedback;
         $latestClass = $user->enrolledClasses()->orderByDesc('class_student.id')->first();
+        $terminalEnabled = (bool) $user->terminal_enabled || $user->enrolledClasses()
+            ->where('terminal_enabled', true)
+            ->exists();
+        $terminalRunning = $terminalEnabled && $user->container_status === 'running';
         $classRank = null;
         $classSize = 0;
         $topScorers = collect();
@@ -77,6 +81,8 @@ class DashboardController extends Controller
             'answeredCount' => $user->studentAnswers()->count(),
             'badge' => $this->badgeService->forScore($totalScore),
             'latestClass' => $latestClass,
+            'terminalEnabled' => $terminalEnabled,
+            'terminalRunning' => $terminalRunning,
             'classRank' => $classRank,
             'classSize' => $classSize,
             'topScorers' => $topScorers,
