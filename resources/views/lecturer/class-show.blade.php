@@ -2,7 +2,7 @@
 
 @section('title', $class->class_name . ' | ShellFix')
 @section('page-title', $class->class_name)
-@section('page-description', $class->course_code . ' student enrollment.')
+@section('page-description', $class->course_code . ' | ' . ($class->semester?->name ?? 'No semester assigned') . ' student enrollment.')
 
 @section('content')
     @if (session('status'))
@@ -112,8 +112,8 @@
                             <th>Linux Username</th>
                             <th>Guacamole Username</th>
                             <th>Terminal</th>
-                            <th>Container Status</th>
-                            <th class="text-end">Actions</th>
+                                <th>Container Status</th>
+                                <th class="text-end">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -132,8 +132,17 @@
                                 </td>
                                 <td>{{ $student->container_status ?: 'not_started' }}</td>
                                 <td class="text-end">
-                                    @if ($class->terminal_enabled)
-                                        <div class="d-flex gap-2 justify-content-end flex-wrap">
+                                    <div class="d-flex gap-2 justify-content-end flex-wrap">
+                                        <form method="POST" action="{{ auth()->user()->isAdmin() ? route('admin.classes.students.status', [$class, $student]) : route('lecturer.classes.students.status', [$class, $student]) }}">
+                                            @csrf @method('PUT')
+                                            <button class="btn btn-sm btn-outline-warning">{{ $student->status === 'disabled' ? 'Enable' : 'Disable' }}</button>
+                                        </form>
+                                        <form method="POST" action="{{ auth()->user()->isAdmin() ? route('admin.classes.students.remove', [$class, $student]) : route('lecturer.classes.students.remove', [$class, $student]) }}" onsubmit="return confirm('Remove this student from class?')">
+                                            @csrf @method('DELETE')
+                                            <button class="btn btn-sm btn-outline-danger">Remove</button>
+                                        </form>
+                                        <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="collapse" data-bs-target="#resetStudent{{ $student->id }}">Reset Password</button>
+                                        @if ($class->terminal_enabled)
                                             <form method="POST" action="{{ route('lecturer.terminal.run', $student) }}">
                                                 @csrf
                                                 <input type="hidden" name="command_type" value="start">
@@ -144,10 +153,16 @@
                                                 <input type="hidden" name="command_type" value="stop">
                                                 <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Stop this student terminal?')">Stop</button>
                                             </form>
-                                        </div>
-                                    @else
-                                        <span class="text-secondary small">Class terminal disabled</span>
-                                    @endif
+                                        @endif
+                                    </div>
+                                    <div class="collapse mt-2" id="resetStudent{{ $student->id }}">
+                                        <form method="POST" action="{{ auth()->user()->isAdmin() ? route('admin.classes.students.password', [$class, $student]) : route('lecturer.classes.students.password', [$class, $student]) }}" class="d-flex gap-2 justify-content-end">
+                                            @csrf @method('PUT')
+                                            <input type="password" name="password" class="form-control form-control-sm" placeholder="New password" required>
+                                            <input type="password" name="password_confirmation" class="form-control form-control-sm" placeholder="Confirm" required>
+                                            <button class="btn btn-sm btn-primary">Save</button>
+                                        </form>
+                                    </div>
                                 </td>
                             </tr>
                         @empty

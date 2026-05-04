@@ -3,9 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\StudentAnswer;
+use App\Models\User;
+use App\Models\Semester;
 use App\Services\BadgeService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 
@@ -17,10 +18,9 @@ class ExamController extends Controller
 
     public function results(Request $request): View
     {
-        $examSet = $this->assignedExamSet();
         $examSessionId = $this->examSessionId();
 
-        $answers = StudentAnswer::with('scenario')
+        $answers = StudentAnswer::with(['scenario', 'question', 'setQuestion.questionSet'])
             ->where('user_id', $request->user()->id)
             ->where('exam_session_id', $examSessionId)
             ->orderBy('created_at')
@@ -28,6 +28,7 @@ class ExamController extends Controller
 
         $totalScore = $answers->sum('score_awarded');
         $badge = $this->badgeService->forScore($totalScore);
+        $examSet = $answers->pluck('setQuestion.questionSet.name')->filter()->unique()->join(', ') ?: 'No selected set';
 
         return view('exam.results', compact('answers', 'examSet', 'totalScore', 'badge'));
     }
@@ -35,45 +36,40 @@ class ExamController extends Controller
     public function leaderboard(Request $request): View
     {
         $examSessionId = $this->examSessionId();
-        $query = StudentAnswer::query()
-            ->with('user')
-            ->select('user_id', 'exam_session_id', 'set_no')
-            ->selectRaw('SUM(score_awarded) as total_score')
-            ->selectRaw('COUNT(*) as answered_count')
-            ->whereNotNull('user_id');
+        $currentSemester = Semester::current();
+        $studentQuery = User::query()
+            ->where('role', 'student')
+            ->whereHas('enrolledClasses', function ($query) use ($request, $currentSemester) {
+                if ($request->user()->isLecturer()) {
+                    $query->where('lecturer_id', $request->user()->id);
+                }
+                if ($currentSemester) {
+                    $query->where('semester_id', $currentSemester->id);
+                }
+            })
+            ->with(['enrolledClasses' => function ($query) use ($request, $currentSemester) {
+                if ($request->user()->isLecturer()) {
+                    $query->where('lecturer_id', $request->user()->id);
+                }
+                if ($currentSemester) {
+                    $query->where('semester_id', $currentSemester->id);
+                }
+                $query->with('semester');
+            }])
+            ->withSum('studentAnswers as total_score', 'score_awarded')
+            ->withCount('studentAnswers as answered_count');
 
-        if ($request->user()->isLecturer()) {
-            $studentIds = $request->user()
-                ->teachingClasses()
-                ->with('students:id')
-                ->get()
-                ->flatMap(fn ($class) => $class->students->pluck('id'))
-                ->unique()
-                ->values();
-
-            $query->whereIn('user_id', $studentIds);
-        }
-
-        $scores = $query
-            ->groupBy('user_id', 'exam_session_id', 'set_no')
-            ->orderByDesc(DB::raw('SUM(score_awarded)'))
-            ->limit(10)
-            ->get();
+        $scores = $studentQuery->get()
+            ->sortByDesc(fn (User $student) => (float) ($student->total_score ?? 0))
+            ->take(10)
+            ->values();
 
         return view('leaderboard', [
             'scores' => $scores,
             'examSessionId' => $examSessionId,
+            'currentSemester' => $currentSemester,
             'badgeService' => $this->badgeService,
         ]);
-    }
-
-    private function assignedExamSet(): int
-    {
-        if (! session()->has('exam_set')) {
-            session(['exam_set' => random_int(1, 10)]);
-        }
-
-        return (int) session('exam_set');
     }
 
     private function examSessionId(): string

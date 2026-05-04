@@ -5,6 +5,11 @@
 @section('page-description', 'Review users, classes, login logs, and exam results.')
 
 @section('content')
+    <div class="alert alert-info border-0 shadow-sm">
+        Current semester: <strong>{{ $currentSemester?->name ?? 'Not set' }}</strong>
+        <a href="{{ route('admin.semesters.index') }}" class="btn btn-sm btn-outline-primary ms-2">Semester Settings</a>
+    </div>
+
     <div class="row g-4 mb-4">
         <div class="col-md-4">
             <div class="card border-0 shadow-sm">
@@ -124,9 +129,29 @@
         </div>
     </div>
 
-    <div class="card border-0 shadow-sm">
+    <div class="card border-0 shadow-sm" id="login-logs">
         <div class="card-body">
-            <h2 class="h5">Login Logs</h2>
+            <div class="d-flex justify-content-between gap-3 flex-wrap align-items-end mb-3">
+                <h2 class="h5 mb-0">Login Logs</h2>
+                <form method="GET" action="{{ route('dashboard') }}" class="row g-2 align-items-end">
+                    <div class="col-auto">
+                        <label for="login_log_per_page" class="form-label small mb-1">Rows</label>
+                        <select class="form-select form-select-sm" id="login_log_per_page" name="login_log_per_page">
+                            @foreach ([10, 20, 50] as $size)
+                                <option value="{{ $size }}" @selected($loginLogPerPage === $size)>{{ $size }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        <label for="login_log_search" class="form-label small mb-1">Search</label>
+                        <input type="search" class="form-control form-control-sm" id="login_log_search" name="login_log_search" value="{{ $loginLogSearch }}" placeholder="Name, email, IP, browser">
+                    </div>
+                    <div class="col-auto">
+                        <button class="btn btn-sm btn-primary">Filter</button>
+                        <a href="{{ route('dashboard') }}" class="btn btn-sm btn-outline-secondary">Reset</a>
+                    </div>
+                </form>
+            </div>
             <div class="table-responsive">
                 <table class="table align-middle mb-0">
                     <thead>
@@ -152,6 +177,12 @@
                         @endforeach
                     </tbody>
                 </table>
+            </div>
+            <div class="d-flex justify-content-between align-items-center mt-3">
+                <div class="text-secondary small">
+                    Showing {{ $loginLogs->firstItem() ?? 0 }} to {{ $loginLogs->lastItem() ?? 0 }} of {{ $loginLogs->total() }} login records
+                </div>
+                {{ $loginLogs->links() }}
             </div>
         </div>
     </div>

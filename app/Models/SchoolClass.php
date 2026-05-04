@@ -14,18 +14,36 @@ class SchoolClass extends Model
 
     protected $fillable = [
         'lecturer_id',
+        'semester_id',
         'class_name',
         'course_code',
         'terminal_enabled',
+        'question_set_id',
     ];
 
     protected $casts = [
         'terminal_enabled' => 'boolean',
     ];
 
+    public function questionSet(): BelongsTo
+    {
+        return $this->belongsTo(QuestionSet::class);
+    }
+
+    public function questionSets(): BelongsToMany
+    {
+        return $this->belongsToMany(QuestionSet::class, 'class_question_set', 'class_id', 'question_set_id')
+            ->withTimestamps();
+    }
+
     public function lecturer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'lecturer_id');
+    }
+
+    public function semester(): BelongsTo
+    {
+        return $this->belongsTo(Semester::class);
     }
 
     public function students(): BelongsToMany

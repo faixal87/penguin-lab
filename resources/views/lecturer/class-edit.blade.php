@@ -32,6 +32,11 @@
                         @error('lecturer_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
                     </div>
                 @endif
+                <div class="col-12">
+                    <div class="alert alert-info border-0 mb-0">
+                        Semester: <strong>{{ $class->semester?->name ?? 'Not assigned' }}</strong>
+                    </div>
+                </div>
 
                 <div class="col-12">
                     <button type="submit" class="btn btn-primary">Save Changes</button>

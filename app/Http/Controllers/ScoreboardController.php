@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Models\Semester;
 use App\Services\BadgeService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -18,18 +19,26 @@ class ScoreboardController extends Controller
     {
         $sort = $request->query('sort', 'highest');
         $user = $request->user();
+        $currentSemester = Semester::current();
 
         $students = User::query()
             ->where('role', 'student')
-            ->whereHas('enrolledClasses', function (Builder $query) use ($user) {
+            ->whereHas('enrolledClasses', function (Builder $query) use ($user, $currentSemester) {
                 if ($user->isLecturer()) {
                     $query->where('lecturer_id', $user->id);
+                }
+                if ($currentSemester) {
+                    $query->where('semester_id', $currentSemester->id);
                 }
             })
-            ->with(['enrolledClasses' => function ($query) use ($user) {
+            ->with(['enrolledClasses' => function ($query) use ($user, $currentSemester) {
                 if ($user->isLecturer()) {
                     $query->where('lecturer_id', $user->id);
                 }
+                if ($currentSemester) {
+                    $query->where('semester_id', $currentSemester->id);
+                }
+                $query->with('semester');
             }])
             ->withSum('studentAnswers as total_score', 'score_awarded');
 
@@ -43,6 +52,7 @@ class ScoreboardController extends Controller
         return view('scoreboard.index', [
             'students' => $students->get(),
             'sort' => $sort,
+            'currentSemester' => $currentSemester,
             'badgeService' => $this->badgeService,
         ]);
     }

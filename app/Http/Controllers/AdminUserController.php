@@ -162,6 +162,8 @@ class AdminUserController extends Controller
             $this->deleteRowsByColumn('student_answers', 'user_id', $user->id);
             $this->deleteRowsByColumn('login_logs', 'user_id', $user->id);
             $this->deleteRowsByColumn('feedback_answers', 'user_id', $user->id);
+            $this->deleteRowsByColumn('notification_reads', 'user_id', $user->id);
+            $this->deleteRowsByColumn('question_set_user', 'user_id', $user->id);
 
             $user->delete();
         });

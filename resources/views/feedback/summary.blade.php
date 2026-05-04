@@ -96,6 +96,71 @@
         <div class="col-lg-6">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-body">
+                    <h2 class="h5">Trend by Class</h2>
+                    @forelse ($classStats as $class)
+                        @php($percent = $class->average_rating ? ($class->average_rating / 5) * 100 : 0)
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between">
+                                <span>{{ $class->class_name }}</span>
+                                <span>{{ number_format($class->average_rating, 2) }} / 5</span>
+                            </div>
+                            <div class="progress">
+                                <div class="progress-bar bg-info" style="width: {{ $percent }}%"></div>
+                            </div>
+                        </div>
+                    @empty
+                        <p class="text-secondary mb-0">No class trend data yet.</p>
+                    @endforelse
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <h2 class="h5">Response Count by Class</h2>
+                    @php($maxResponses = max(1, $classStats->max('response_count') ?? 1))
+                    @forelse ($classStats as $class)
+                        @php($percent = ($class->response_count / $maxResponses) * 100)
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between">
+                                <span>{{ $class->class_name }}</span>
+                                <span>{{ $class->response_count }} respondents</span>
+                            </div>
+                            <div class="progress">
+                                <div class="progress-bar bg-success" style="width: {{ $percent }}%"></div>
+                            </div>
+                        </div>
+                    @empty
+                        <p class="text-secondary mb-0">No response count data yet.</p>
+                    @endforelse
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <h2 class="h5">Rating Distribution</h2>
+            @php($maxRatingCount = max(1, $ratingDistribution->max('count') ?? 1))
+            @foreach ($ratingDistribution as $item)
+                @php($percent = ($item->count / $maxRatingCount) * 100)
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between">
+                        <span>{{ $item->rating }} star</span>
+                        <span>{{ $item->count }} responses</span>
+                    </div>
+                    <div class="progress">
+                        <div class="progress-bar bg-warning" style="width: {{ $percent }}%"></div>
+                    </div>
+                </div>
+            @endforeach
+        </div>
+    </div>
+
+    <div class="row g-4 mb-4">
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
                     <h2 class="h5">Top 5 Highest Rated Questions</h2>
                     <ol class="mb-0">
                         @forelse ($topQuestions as $question)
@@ -119,6 +184,21 @@
                         @endforelse
                     </ol>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <h2 class="h5">AI-Style Summary</h2>
+            <div class="row g-3">
+                <div class="col-md-6"><div class="p-3 rounded border border-secondary"><div class="fw-semibold mb-1">Strengths</div><p class="mb-0 text-secondary">{{ $aiSummary['strengths'] }}</p></div></div>
+                <div class="col-md-6"><div class="p-3 rounded border border-secondary"><div class="fw-semibold mb-1">Weaknesses / Improvement Areas</div><p class="mb-0 text-secondary">{{ $aiSummary['weaknesses'] }}</p></div></div>
+                <div class="col-md-6"><div class="p-3 rounded border border-secondary"><div class="fw-semibold mb-1">Learning Impact</div><p class="mb-0 text-secondary">{{ $aiSummary['learningImpact'] }}</p></div></div>
+                <div class="col-md-6"><div class="p-3 rounded border border-secondary"><div class="fw-semibold mb-1">Student Engagement</div><p class="mb-0 text-secondary">{{ $aiSummary['engagement'] }}</p></div></div>
+                <div class="col-md-6"><div class="p-3 rounded border border-secondary"><div class="fw-semibold mb-1">Class Comparison</div><p class="mb-0 text-secondary">{{ $aiSummary['classComparison'] }}</p></div></div>
+                <div class="col-md-6"><div class="p-3 rounded border border-secondary"><div class="fw-semibold mb-1">Suggested CQI Actions</div><p class="mb-0 text-secondary">{{ $aiSummary['cqi'] }}</p></div></div>
+                <div class="col-12"><div class="p-3 rounded border border-info"><div class="fw-semibold mb-1">Research Writing Paragraph Draft</div><p class="mb-0 text-secondary">{{ $aiSummary['paperParagraph'] }}</p></div></div>
             </div>
         </div>
     </div>

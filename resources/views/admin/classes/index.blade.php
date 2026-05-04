@@ -8,6 +8,17 @@
     @if (session('status'))
         <div class="alert alert-success border-0 shadow-sm">{{ session('status') }}</div>
     @endif
+    @if (session('error'))
+        <div class="alert alert-danger border-0 shadow-sm">{{ session('error') }}</div>
+    @endif
+
+    <div class="alert alert-info border-0 shadow-sm">
+        Current semester: <strong>{{ $currentSemester?->name ?? 'Not set' }}</strong>
+        @unless($currentSemester)
+            <span class="ms-2">Admin must set current semester before classes can be created.</span>
+            <a href="{{ route('admin.semesters.index') }}" class="btn btn-sm btn-outline-primary ms-2">Semester Settings</a>
+        @endunless
+    </div>
 
     <div class="card border-0 shadow-sm mb-4">
         <div class="card-body">
@@ -35,7 +46,7 @@
                     @error('lecturer_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
                 </div>
                 <div class="col-md-2 d-flex align-items-end">
-                    <button type="submit" class="btn btn-primary w-100">Create</button>
+                    <button type="submit" class="btn btn-primary w-100" @disabled(! $currentSemester)>Create</button>
                 </div>
             </form>
         </div>
@@ -49,6 +60,7 @@
                         <tr>
                             <th>Class</th>
                             <th>Course</th>
+                            <th>Semester</th>
                             <th>Lecturer</th>
                             <th>Students</th>
                             <th class="text-end">Actions</th>
@@ -59,6 +71,7 @@
                             <tr>
                                 <td class="fw-semibold">{{ $class->class_name }}</td>
                                 <td>{{ $class->course_code }}</td>
+                                <td>{{ $class->semester?->name ?? '-' }}</td>
                                 <td>{{ $class->lecturer?->name ?? '-' }}</td>
                                 <td>{{ $class->students->count() }}</td>
                                 <td class="text-end">
@@ -73,7 +86,7 @@
                             </tr>
                             @if ($class->students->isNotEmpty())
                                 <tr>
-                                    <td colspan="5" class="bg-light">
+                                    <td colspan="6" class="bg-light text-dark">
                                         <span class="fw-semibold">Enrolled:</span>
                                         {{ $class->students->map(fn ($student) => $student->name . ' (' . ($student->matric_no ?? $student->registration_no ?? '-') . ')')->join(', ') }}
                                     </td>
@@ -81,7 +94,7 @@
                             @endif
                         @empty
                             <tr>
-                                <td colspan="5" class="text-center text-secondary py-4">No classes found.</td>
+                                <td colspan="6" class="text-center text-secondary py-4">No classes found.</td>
                             </tr>
                         @endforelse
                     </tbody>

@@ -4,17 +4,21 @@ namespace App\Http\Controllers;
 
 use App\Models\FeedbackAnswer;
 use App\Models\FeedbackQuestion;
-use App\Models\Scenario;
+use App\Services\CourseFeedbackService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class FeedbackController extends Controller
 {
+    public function __construct(private CourseFeedbackService $feedbackControls)
+    {
+    }
+
     public function form(Request $request): View|RedirectResponse
     {
-        if (! $this->hasCompletedModules($request)) {
-            return redirect()->route('dashboard')->with('status', 'Complete all modules before submitting course feedback.');
+        if (! $this->feedbackControls->isEnabledFor($request->user())) {
+            return redirect()->route('dashboard')->with('status', 'Course feedback is not currently enabled for your account.');
         }
 
         if ($this->hasSubmitted($request)) {
@@ -36,8 +40,8 @@ class FeedbackController extends Controller
 
     public function submit(Request $request): RedirectResponse
     {
-        if (! $this->hasCompletedModules($request)) {
-            return redirect()->route('dashboard')->with('status', 'Complete all modules before submitting course feedback.');
+        if (! $this->feedbackControls->isEnabledFor($request->user())) {
+            return redirect()->route('dashboard')->with('status', 'Course feedback is not currently enabled for your account.');
         }
 
         if ($this->hasSubmitted($request)) {
@@ -110,28 +114,5 @@ class FeedbackController extends Controller
     private function hasSubmitted(Request $request): bool
     {
         return FeedbackAnswer::where('user_id', $request->user()->id)->exists();
-    }
-
-    private function hasCompletedModules(Request $request): bool
-    {
-        $examSet = (int) session('exam_set', 0);
-
-        if ($examSet === 0) {
-            return false;
-        }
-
-        $scenarioIds = Scenario::where('set_no', $examSet)->pluck('id');
-
-        if ($scenarioIds->isEmpty()) {
-            return false;
-        }
-
-        $completedCount = $request->user()
-            ->studentAnswers()
-            ->whereIn('scenario_id', $scenarioIds)
-            ->distinct('scenario_id')
-            ->count('scenario_id');
-
-        return $completedCount >= $scenarioIds->count();
     }
 }

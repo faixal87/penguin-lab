@@ -43,7 +43,7 @@
             <div class="d-flex justify-content-between align-items-center gap-3 flex-wrap">
                 <div>
                     <h2 class="h5">Welcome to ShellFix</h2>
-                    <p class="mb-0 text-secondary">Use the sidebar to explore scenarios, submit answers, and review your results.</p>
+                    <p class="mb-0 text-secondary">Current semester: {{ $currentSemester?->name ?? 'Not set' }}. Use the sidebar to explore scenarios, submit answers, and review your results.</p>
                 </div>
                 @if (auth()->user()->isStudent() && $terminalRunning)
                     <a href="{{ route('terminal.index') }}" class="btn btn-primary">Launch Terminal</a>
@@ -70,6 +70,32 @@
         @endif
 
         <div class="row g-4 mt-1">
+            <div class="col-12">
+                <div class="card border-0 shadow-sm xp-card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center gap-3 flex-wrap">
+                            <div>
+                                <h2 class="h5">Assigned Question Sets</h2>
+                                @if(($assignedQuestionSets ?? collect())->isNotEmpty())
+                                    <div class="d-flex gap-2 flex-wrap">
+                                        @foreach($assignedQuestionSets as $set)
+                                            <span class="badge text-bg-info">{{ $set->name }}</span>
+                                        @endforeach
+                                    </div>
+                                @else
+                                    <p class="text-secondary mb-0">No question set has been assigned yet.</p>
+                                @endif
+                            </div>
+                            @if(($assignedQuestionSets ?? collect())->count() > 1)
+                                <a href="{{ route('scenarios.choose') }}" class="btn btn-outline-primary">Choose Set</a>
+                            @elseif(($assignedQuestionSets ?? collect())->count() === 1)
+                                <a href="{{ route('scenarios') }}" class="btn btn-outline-primary">Open Set</a>
+                            @endif
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <div class="col-lg-6">
                 <div class="card border-0 shadow-sm h-100 xp-card">
                     <div class="card-body">
@@ -101,7 +127,7 @@
 
         <div class="card border-0 shadow-sm mt-4">
             <div class="card-body">
-                <h2 class="h5">Top 5 Scorers</h2>
+                <h2 class="h5">Top 5 Scorers in My Class</h2>
                 <div class="table-responsive">
                     <table class="table align-middle mb-0">
                         <thead>
@@ -117,7 +143,7 @@
                                 @php($studentScore = $student->total_score ?? 0)
                                 <tr>
                                     <td class="fw-semibold">{{ $loop->iteration }}</td>
-                                    <td>{{ $student->name }}</td>
+                                    <td><span class="position-relative d-inline-block"><img src="{{ $student->profilePhotoUrl() }}" class="rank-avatar me-2" alt="{{ $student->name }}"><span class="avatar-preview"><img src="{{ $student->profilePhotoUrl() }}" alt="{{ $student->name }}"></span></span>{{ $student->name }}</td>
                                     <td>{{ $studentScore }}</td>
                                     <td>
                                         @if ($student->isStudent())
@@ -130,6 +156,31 @@
                                     <td colspan="4" class="text-center text-secondary py-4">No classmates have scores yet.</td>
                                 </tr>
                             @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm mt-4">
+            <div class="card-body">
+                <h2 class="h5">Overall Semester Leaderboard</h2>
+                <div class="table-responsive">
+                    <table class="table align-middle mb-0">
+                        <thead><tr><th>Rank</th><th>Student</th><th>Class</th><th>Total Score</th><th>Badge</th></tr></thead>
+                        <tbody>
+                        @forelse ($semesterLeaderboard as $student)
+                            @php($studentScore = $student->total_score ?? 0)
+                            <tr>
+                                <td class="fw-semibold">{{ $loop->iteration }}</td>
+                                <td><span class="position-relative d-inline-block"><img src="{{ $student->profilePhotoUrl() }}" class="rank-avatar me-2" alt="{{ $student->name }}"><span class="avatar-preview"><img src="{{ $student->profilePhotoUrl() }}" alt="{{ $student->name }}"></span></span>{{ $student->name }}</td>
+                                <td>{{ $student->enrolledClasses->pluck('class_name')->join(', ') ?: '-' }}</td>
+                                <td>{{ $studentScore }}</td>
+                                <td><span class="badge text-bg-primary badge-glow">{{ $badgeService->forScore($studentScore) }}</span></td>
+                            </tr>
+                        @empty
+                            <tr><td colspan="5" class="text-center text-secondary py-4">No semester scores yet.</td></tr>
+                        @endforelse
                         </tbody>
                     </table>
                 </div>

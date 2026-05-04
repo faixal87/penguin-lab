@@ -2,7 +2,7 @@
 
 @section('title', 'Results | ShellFix')
 @section('page-title', 'Exam Results')
-@section('page-description', 'Review your answered questions and total score for Set ' . $examSet . '.')
+@section('page-description', 'Review your answered questions and total score for ' . $examSet . '.')
 
 @section('content')
     <div class="row g-4 mb-4">
@@ -10,7 +10,7 @@
             <div class="card border-0 shadow-sm stat-card">
                 <div class="card-body">
                     <h2 class="h6 text-secondary">Assigned Set</h2>
-                    <p class="display-6 fw-semibold mb-0">Set {{ $examSet }}</p>
+                    <p class="display-6 fw-semibold mb-0">{{ $examSet }}</p>
                 </div>
             </div>
         </div>
@@ -43,7 +43,7 @@
                     <tbody>
                         @forelse ($answers as $answer)
                             <tr>
-                                <td class="fw-semibold">{{ $answer->scenario->title }}</td>
+                                <td class="fw-semibold">{{ $answer->question?->title ?? $answer->scenario?->title ?? 'Question' }}</td>
                                 <td><code>{{ $answer->answer }}</code></td>
                                 <td>
                                     <span class="badge {{ $answer->is_correct ? 'text-bg-success' : 'text-bg-danger' }}">

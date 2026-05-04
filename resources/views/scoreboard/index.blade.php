@@ -2,7 +2,7 @@
 
 @section('title', 'Class Scoreboard | ShellFix')
 @section('page-title', 'Class Scoreboard')
-@section('page-description', 'Compare enrolled student scores by class.')
+@section('page-description', 'Compare enrolled student scores by class for ' . ($currentSemester?->name ?? 'all semesters') . '.')
 
 @section('content')
     <div class="card border-0 shadow-sm mb-4">
@@ -34,6 +34,7 @@
                             <th scope="col">Student</th>
                             <th scope="col">Matric / Registration</th>
                             <th scope="col">Class</th>
+                            <th scope="col">Semester</th>
                             <th scope="col">Total Score</th>
                             <th scope="col">Badge</th>
                         </tr>
@@ -45,9 +46,16 @@
                             @endphp
                             <tr>
                                 <td class="fw-semibold">{{ $loop->iteration }}</td>
-                                <td>{{ $student->name }}</td>
+                                <td>
+                                    <span class="position-relative d-inline-block">
+                                        <img src="{{ $student->profilePhotoUrl() }}" class="rank-avatar me-2" alt="{{ $student->name }}">
+                                        <span class="avatar-preview"><img src="{{ $student->profilePhotoUrl() }}" alt="{{ $student->name }}"></span>
+                                    </span>
+                                    {{ $student->name }}
+                                </td>
                                 <td>{{ $student->matric_no ?? $student->registration_no ?? '-' }}</td>
                                 <td>{{ $student->enrolledClasses->pluck('class_name')->join(', ') ?: ($student->class_name ?? '-') }}</td>
+                                <td>{{ $student->enrolledClasses->pluck('semester.name')->filter()->unique()->join(', ') ?: '-' }}</td>
                                 <td class="fw-semibold">{{ $totalScore }}</td>
                                 <td>
                                     @if ($student->isStudent())
@@ -57,7 +65,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="6" class="text-center text-secondary py-4">No enrolled student scores are available yet.</td>
+                                <td colspan="7" class="text-center text-secondary py-4">No enrolled student scores are available yet.</td>
                             </tr>
                         @endforelse
                     </tbody>

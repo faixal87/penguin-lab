@@ -23,6 +23,7 @@ use Illuminate\Notifications\Notifiable;
     'last_login_ip',
     'last_user_agent',
     'profile_photo',
+    'default_avatar',
     'phone_no',
     'program',
     'semester',
@@ -87,6 +88,12 @@ class User extends Authenticatable
             ->withPivot('id');
     }
 
+    public function assignedQuestionSets(): BelongsToMany
+    {
+        return $this->belongsToMany(QuestionSet::class, 'question_set_user', 'user_id', 'question_set_id')
+            ->withTimestamps();
+    }
+
     public function loginLogs(): HasMany
     {
         return $this->hasMany(LoginLog::class);
@@ -102,8 +109,28 @@ class User extends Authenticatable
         return $this->hasMany(FeedbackAnswer::class);
     }
 
+    public function notificationReads(): HasMany
+    {
+        return $this->hasMany(NotificationRead::class);
+    }
+
     public function profilePhotoUrl(): ?string
     {
-        return $this->profile_photo ? asset('storage/' . $this->profile_photo) : null;
+        if ($this->profile_photo) {
+            return asset('storage/' . $this->profile_photo);
+        }
+
+        return asset('assets/avatars/' . ($this->default_avatar ?: 'penguin-1.svg'));
+    }
+
+    public static function defaultAvatars(): array
+    {
+        return [
+            'penguin-1.svg' => 'Ubuntu Penguin',
+            'penguin-2.svg' => 'Neon Penguin',
+            'penguin-3.svg' => 'Terminal Penguin',
+            'penguin-4.svg' => 'Cyber Penguin',
+            'penguin-5.svg' => 'Lab Penguin',
+        ];
     }
 }

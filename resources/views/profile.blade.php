@@ -13,13 +13,7 @@
         <div class="col-lg-4">
             <div class="card border-0 shadow-sm">
                 <div class="card-body text-center">
-                    @if ($user->profilePhotoUrl())
-                        <img src="{{ $user->profilePhotoUrl() }}" alt="{{ $user->name }}" class="rounded-circle mb-3" style="width: 120px; height: 120px; object-fit: cover;">
-                    @else
-                        <div class="rounded-circle bg-secondary-subtle d-inline-flex align-items-center justify-content-center mb-3" style="width: 120px; height: 120px;">
-                            <span class="h1 mb-0">{{ strtoupper(substr($user->name, 0, 1)) }}</span>
-                        </div>
-                    @endif
+                    <img src="{{ $user->profilePhotoUrl() }}" alt="{{ $user->name }}" class="rounded-circle mb-3" style="width: 120px; height: 120px; object-fit: cover;">
                     <h2 class="h5 mb-1">{{ $user->name }}</h2>
                     <p class="text-secondary mb-2">{{ ucfirst($user->role) }}</p>
                     @if ($user->isStudent())
@@ -52,6 +46,19 @@
                                 <label for="profile_photo" class="form-label">Profile Photo</label>
                                 <input type="file" class="form-control @error('profile_photo') is-invalid @enderror" id="profile_photo" name="profile_photo" accept="image/*">
                                 @error('profile_photo')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Default Avatar</label>
+                                <div class="d-flex gap-3 flex-wrap">
+                                    @foreach(\App\Models\User::defaultAvatars() as $avatar => $label)
+                                        <label class="text-center">
+                                            <input type="radio" class="form-check-input me-1" name="default_avatar" value="{{ $avatar }}" @checked(old('default_avatar', $user->default_avatar ?: 'penguin-1.svg') === $avatar)>
+                                            <img src="{{ asset('assets/avatars/' . $avatar) }}" alt="{{ $label }}" class="rounded-circle d-block my-1" style="width:64px;height:64px;object-fit:cover;">
+                                            <span class="small">{{ $label }}</span>
+                                        </label>
+                                    @endforeach
+                                </div>
+                                @error('default_avatar')<div class="text-danger small">{{ $message }}</div>@enderror
                             </div>
                             <div class="col-md-6">
                                 <label for="phone_no" class="form-label">Phone No</label>

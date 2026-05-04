@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\SchoolClass;
+use App\Models\Semester;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -18,8 +19,9 @@ class LecturerClassController extends Controller
         abort_unless($request->user()->isAdmin(), 403);
 
         return view('admin.classes.index', [
-            'classes' => SchoolClass::with('lecturer', 'students')->latest('created_at')->get(),
+            'classes' => SchoolClass::with('lecturer', 'students', 'semester')->latest('created_at')->get(),
             'lecturers' => User::where('role', 'lecturer')->orderBy('name')->get(),
+            'currentSemester' => Semester::current(),
         ]);
     }
 
@@ -29,12 +31,20 @@ class LecturerClassController extends Controller
             'class_name' => ['required', 'string', 'max:255'],
             'course_code' => ['required', 'string', 'max:50'],
         ]);
+        $currentSemester = Semester::current();
+
+        if (! $currentSemester) {
+            return back()->with('error', 'Admin must set current semester before classes can be created.');
+        }
 
         $lecturerId = $request->user()->isAdmin()
             ? $request->validate(['lecturer_id' => ['required', Rule::exists('users', 'id')->where('role', 'lecturer')]])['lecturer_id']
             : $request->user()->id;
 
-        SchoolClass::create($validated + ['lecturer_id' => $lecturerId]);
+        SchoolClass::create($validated + [
+            'lecturer_id' => $lecturerId,
+            'semester_id' => $currentSemester->id,
+        ]);
 
         return back()->with('status', 'Class created successfully.');
     }
@@ -44,7 +54,7 @@ class LecturerClassController extends Controller
         $this->authorizeClassManagement($request, $schoolClass);
 
         return view('lecturer.class-edit', [
-            'class' => $schoolClass,
+            'class' => $schoolClass->load('semester'),
             'lecturers' => User::where('role', 'lecturer')->orderBy('name')->get(),
         ]);
     }
@@ -91,8 +101,42 @@ class LecturerClassController extends Controller
         $this->authorizeClassManagement($request, $schoolClass);
 
         return view('lecturer.class-show', [
-            'class' => $schoolClass->load('students'),
+            'class' => $schoolClass->load('students', 'semester'),
         ]);
+    }
+
+    public function removeStudent(Request $request, SchoolClass $schoolClass, User $student): RedirectResponse
+    {
+        $this->authorizeClassManagement($request, $schoolClass);
+        abort_unless($student->isStudent() && $schoolClass->students()->where('users.id', $student->id)->exists(), 404);
+
+        $schoolClass->students()->detach($student->id);
+
+        return back()->with('status', 'Student removed from class.');
+    }
+
+    public function disableStudent(Request $request, SchoolClass $schoolClass, User $student): RedirectResponse
+    {
+        $this->authorizeClassManagement($request, $schoolClass);
+        abort_unless($student->isStudent() && $schoolClass->students()->where('users.id', $student->id)->exists(), 404);
+
+        $student->update(['status' => $student->status === 'disabled' ? 'approved' : 'disabled']);
+
+        return back()->with('status', 'Student status updated.');
+    }
+
+    public function resetStudentPassword(Request $request, SchoolClass $schoolClass, User $student): RedirectResponse
+    {
+        $this->authorizeClassManagement($request, $schoolClass);
+        abort_unless($student->isStudent() && $schoolClass->students()->where('users.id', $student->id)->exists(), 404);
+
+        $validated = $request->validate([
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
+        ]);
+
+        $student->update(['password' => Hash::make($validated['password'])]);
+
+        return back()->with('status', 'Student password reset.');
     }
 
     public function uploadStudents(Request $request, SchoolClass $schoolClass): RedirectResponse

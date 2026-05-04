@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Scenario;
 use App\Models\StudentAnswer;
+use App\Models\QuestionSet;
+use App\Models\QuestionSetQuestion;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -11,97 +13,256 @@ use Illuminate\View\View;
 
 class ScenarioController extends Controller
 {
-    public function index(): View
+    public function chooseSet(Request $request): View|RedirectResponse
     {
-        $this->ensureExamSetsExist();
+        $sets = $this->availableQuestionSets($request);
 
-        $examSet = $this->assignedExamSet();
-        $scenarios = Scenario::where('set_no', $examSet)
-            ->orderBy('id')
-            ->get();
-        $answersByScenario = StudentAnswer::where('user_id', request()->user()->id)
-            ->where('exam_session_id', $this->examSessionId())
-            ->whereIn('scenario_id', $scenarios->pluck('id'))
-            ->get()
-            ->keyBy('scenario_id');
-        $totalAwarded = $answersByScenario->sum('score_awarded');
-        $totalPossible = $scenarios->sum('score');
+        if ($sets->isEmpty()) {
+            return redirect()->route('scenarios');
+        }
+
+        if ($sets->count() === 1) {
+            session(['selected_question_set_id' => $sets->first()->id]);
+
+            return redirect()->route('scenarios');
+        }
+
+        return view('scenarios.choose', compact('sets'));
+    }
+
+    public function selectSet(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'question_set_id' => ['required', 'integer', 'exists:question_sets,id'],
+        ]);
+
+        $sets = $this->availableQuestionSets($request);
+        abort_unless($sets->contains('id', (int) $validated['question_set_id']), 403);
+
+        session(['selected_question_set_id' => (int) $validated['question_set_id']]);
+
+        return redirect()->route('scenarios');
+    }
+
+    public function index(Request $request): View|RedirectResponse
+    {
+        $availableSets = $this->availableQuestionSets($request);
+
+        if ($availableSets->count() > 1 && ! $this->selectedQuestionSet($request, $availableSets)) {
+            return redirect()->route('scenarios.choose');
+        }
+
+        if ($assignedSet = $this->selectedQuestionSet($request, $availableSets)) {
+            $setQuestions = $assignedSet->setQuestions()->with('question')->get();
+            $answersByScenario = StudentAnswer::where('user_id', $request->user()->id)
+                ->where('exam_session_id', $this->examSessionId())
+                ->whereIn('question_set_question_id', $setQuestions->pluck('id'))
+                ->get()
+                ->keyBy('question_set_question_id');
+            $totalAwarded = $answersByScenario->sum('score_awarded');
+            $totalPossible = $setQuestions->sum(fn (QuestionSetQuestion $item) => $item->effectiveMark());
+            $examSet = $assignedSet->name;
+            $usingQuestionSet = true;
+
+            return view('scenarios.index', compact('setQuestions', 'examSet', 'answersByScenario', 'totalAwarded', 'totalPossible', 'usingQuestionSet', 'availableSets'));
+        }
+
+        $usingQuestionSet = true;
+        $noAssignedSet = true;
+        $examSet = null;
+        $setQuestions = collect();
+        $answersByScenario = collect();
+        $totalAwarded = 0;
+        $totalPossible = 0;
 
         return view('scenarios.index', compact(
-            'scenarios',
+            'setQuestions',
             'examSet',
             'answersByScenario',
             'totalAwarded',
-            'totalPossible'
+            'totalPossible',
+            'usingQuestionSet',
+            'noAssignedSet',
+            'availableSets'
         ));
     }
 
     public function show(Scenario $scenario): View
     {
-        $this->ensureExamSetsExist();
-        abort_unless($scenario->set_no === $this->assignedExamSet(), 404);
-
-        $hintUsed = $this->hintUsed($scenario);
-
-        return view('scenarios.show', compact('scenario', 'hintUsed'));
+        abort(404);
     }
 
     public function showHint(Scenario $scenario): RedirectResponse
     {
-        abort_unless($scenario->set_no === $this->assignedExamSet(), 404);
-
-        session([$this->hintSessionKey($scenario) => true]);
-
-        return back()->withInput();
+        abort(404);
     }
 
     public function check(Request $request, Scenario $scenario): RedirectResponse
     {
-        abort_unless($scenario->set_no === $this->assignedExamSet(), 404);
+        abort(404);
+    }
 
-        $validated = $request->validate([
-            'command' => ['required', 'string'],
-        ]);
+    public function showSetQuestion(QuestionSetQuestion $setQuestion): View
+    {
+        abort_unless($this->canAccessSetQuestion($setQuestion), 404);
 
-        $isCorrect = trim($validated['command']) === trim($scenario->expected_command);
-        $hintUsed = $this->hintUsed($scenario);
+        $question = $setQuestion->load('question', 'questionSet')->question;
+        $scenario = (object) [
+            'id' => $setQuestion->id,
+            'title' => $question->title,
+            'description' => $question->description,
+            'difficulty' => $question->difficulty,
+            'score' => $setQuestion->effectiveMark(),
+            'hint' => $question->hint_1,
+            'explanation' => $question->explanation,
+        ];
+        $hintUsed = $this->setQuestionHintUsed($setQuestion);
+        $usingQuestionSet = true;
+
+        return view('scenarios.show', compact('scenario', 'hintUsed', 'setQuestion', 'usingQuestionSet'));
+    }
+
+    public function showSetQuestionHint(QuestionSetQuestion $setQuestion, int $level): RedirectResponse
+    {
+        abort_unless($this->canAccessSetQuestion($setQuestion), 404);
+        abort_unless($level === 1, 404);
+
+        session([$this->setQuestionHintSessionKey($setQuestion) => true]);
+
+        return back()->withInput();
+    }
+
+    public function checkSetQuestion(Request $request, QuestionSetQuestion $setQuestion): RedirectResponse
+    {
+        abort_unless($this->canAccessSetQuestion($setQuestion), 404);
+
+        $validated = $request->validate(['command' => ['required', 'string']]);
+        $setQuestion->load('question', 'questionSet');
+        $isCorrect = trim($validated['command']) === trim($setQuestion->question->expected_answer);
+        $hintUsed = $this->setQuestionHintUsed($setQuestion);
+        $mark = $setQuestion->effectiveMark();
         $awardedScore = 0;
 
         if ($isCorrect) {
-            $awardedScore = $hintUsed ? $scenario->score * 0.5 : $scenario->score;
+            $awardedScore = $hintUsed ? $mark * 0.5 : $mark;
         }
 
         StudentAnswer::updateOrCreate(
             [
                 'user_id' => $request->user()->id,
                 'exam_session_id' => $this->examSessionId(),
-                'scenario_id' => $scenario->id,
+                'question_set_question_id' => $setQuestion->id,
             ],
             [
-                'set_no' => $this->assignedExamSet(),
+                'set_no' => 0,
+                'scenario_id' => $setQuestion->question->source_scenario_id ?: $this->legacyScenarioForQuestion($setQuestion),
+                'question_set_id' => $setQuestion->question_set_id,
+                'question_bank_id' => $setQuestion->question_bank_id,
                 'answer' => $validated['command'],
                 'is_correct' => $isCorrect,
                 'score_awarded' => $awardedScore,
                 'hint_used' => $hintUsed,
+                'hint_level' => $hintUsed ? 1 : 0,
             ]
         );
 
-        return back()
-            ->withInput()
-            ->with('answer_result', [
-                'correct' => $isCorrect,
-                'hint_used' => $hintUsed,
-                'awarded_score' => $awardedScore,
-            ]);
+        return back()->withInput()->with('answer_result', [
+            'correct' => $isCorrect,
+            'hint_used' => $hintUsed,
+            'awarded_score' => $awardedScore,
+        ]);
     }
 
-    private function assignedExamSet(): int
+    private function assignedQuestionSet(): ?QuestionSet
     {
-        if (! session()->has('exam_set')) {
-            session(['exam_set' => random_int(1, 10)]);
+        return $this->selectedQuestionSet(request(), $this->availableQuestionSets(request()));
+    }
+
+    private function availableQuestionSets(Request $request)
+    {
+        $user = $request->user();
+        $studentSets = $user->assignedQuestionSets()
+            ->where('is_active', true)
+            ->with('setQuestions.question')
+            ->get()
+            ->filter(fn (QuestionSet $set) => $set->isAssignable())
+            ->values();
+
+        if ($studentSets->isNotEmpty()) {
+            return $studentSets;
         }
 
-        return (int) session('exam_set');
+        return QuestionSet::query()
+            ->where('is_active', true)
+            ->whereHas('classes', fn ($query) => $query->whereIn('classes.id', $user->enrolledClasses()->pluck('classes.id')))
+            ->with('setQuestions.question')
+            ->get()
+            ->filter(fn (QuestionSet $set) => $set->isAssignable())
+            ->values();
+    }
+
+    private function selectedQuestionSet(Request $request, $availableSets): ?QuestionSet
+    {
+        if ($availableSets->isEmpty()) {
+            session()->forget('selected_question_set_id');
+            return null;
+        }
+
+        if ($availableSets->count() === 1) {
+            session(['selected_question_set_id' => $availableSets->first()->id]);
+            return $availableSets->first();
+        }
+
+        $selectedId = (int) session('selected_question_set_id', 0);
+        $selected = $availableSets->firstWhere('id', $selectedId);
+
+        if (! $selected) {
+            session()->forget('selected_question_set_id');
+        }
+
+        return $selected;
+    }
+
+    private function canAccessSetQuestion(QuestionSetQuestion $setQuestion): bool
+    {
+        $set = $this->assignedQuestionSet();
+
+        return $set && $setQuestion->question_set_id === $set->id;
+    }
+
+    private function setQuestionHintUsed(QuestionSetQuestion $setQuestion): bool
+    {
+        return (bool) session($this->setQuestionHintSessionKey($setQuestion), false);
+    }
+
+    private function setQuestionHintSessionKey(QuestionSetQuestion $setQuestion): string
+    {
+        return "set_question_hints.{$setQuestion->id}";
+    }
+
+    private function legacyScenarioForQuestion(QuestionSetQuestion $setQuestion): int
+    {
+        $question = $setQuestion->question;
+
+        $scenario = Scenario::firstOrCreate(
+            [
+                'set_no' => 1,
+                'question_type' => 'question_bank_' . $question->id,
+            ],
+            [
+                'title' => $question->title,
+                'description' => $question->description,
+                'expected_command' => $question->expected_answer,
+                'hint' => $question->hint_1,
+                'hint_2' => $question->hint_2,
+                'difficulty' => $question->difficulty,
+                'score' => $question->score,
+            ]
+        );
+
+        $question->update(['source_scenario_id' => $scenario->id]);
+
+        return $scenario->id;
     }
 
     private function examSessionId(): string

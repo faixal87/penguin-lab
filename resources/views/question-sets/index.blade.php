@@ -2,17 +2,20 @@
 
 @section('title', 'Question Sets | ShellFix')
 @section('page-title', 'Question Sets')
-@section('page-description', 'Review generated scenario questions and expected commands.')
+@section('page-description', 'Review active and draft question sets, marks, hints, and expected answers.')
 
 @section('content')
     <div class="card border-0 shadow-sm mb-4">
         <div class="card-body">
             <form method="GET" action="{{ route('question-sets.index') }}" class="row g-3 align-items-end">
                 <div class="col-md-3">
-                    <label for="set_no" class="form-label">Question Set</label>
-                    <select class="form-select" id="set_no" name="set_no">
-                        @foreach ($sets as $setNo)
-                            <option value="{{ $setNo }}" @selected($selectedSet === $setNo)>Set {{ $setNo }}</option>
+                    <label for="set_id" class="form-label">Question Set</label>
+                    <select class="form-select" id="set_id" name="set_id">
+                        @foreach ($sets as $set)
+                            @php($total = $set->currentTotal())
+                            <option value="{{ $set->id }}" @selected($selectedSet === $set->id)>
+                                {{ $set->name }} - {{ $total }}/100 - {{ $set->is_active ? 'Active' : 'Inactive' }}
+                            </option>
                         @endforeach
                     </select>
                 </div>
@@ -53,16 +56,17 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @forelse ($questions as $question)
+                        @forelse ($questions as $setQuestion)
+                            @php($question = $setQuestion->question)
                             <tr>
                                 <td class="fw-semibold">{{ $question->title }}</td>
                                 <td>{{ $question->description }}</td>
-                                <td>{{ $question->question_type ?? '-' }}</td>
+                                <td>{{ $question->category ?? '-' }}</td>
                                 <td><span class="badge text-bg-secondary">{{ $question->difficulty }}</span></td>
-                                <td>{{ $question->score }}</td>
-                                <td>{{ $question->hint ?? '-' }}</td>
+                                <td>{{ $setQuestion->effectiveMark() }}</td>
+                                <td>{{ $question->hint_1 ?? '-' }}</td>
                                 <td>{{ $question->hint_2 ?? '-' }}</td>
-                                <td><code>{{ $question->expected_command }}</code></td>
+                                <td><code>{{ $question->expected_answer }}</code></td>
                             </tr>
                         @empty
                             <tr>

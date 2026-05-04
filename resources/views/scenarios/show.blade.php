@@ -31,18 +31,17 @@
 
             <div class="mb-4">
                 @if ($hintUsed)
-                    <div class="alert alert-warning mb-0" role="alert">
-                        <div class="fw-semibold mb-1">Hint</div>
-                        {{ $scenario->hint ?? 'No hint is available for this question.' }}
-                    </div>
+                    <div class="alert alert-warning mb-0" role="alert"><div class="fw-semibold mb-1">Hint</div>{{ $scenario->hint ?? 'No hint is available for this question.' }}</div>
                 @else
-                    <button type="button" class="btn btn-outline-warning" data-bs-toggle="modal" data-bs-target="#hintModal">
-                        Show Hint
-                    </button>
+                    @if($usingQuestionSet ?? false)
+                        <button type="button" class="btn btn-outline-warning" data-bs-toggle="modal" data-bs-target="#hintOneModal">Show Hint</button>
+                    @else
+                        <button type="button" class="btn btn-outline-warning" data-bs-toggle="modal" data-bs-target="#hintModal">Show Hint</button>
+                    @endif
                 @endif
             </div>
 
-            <form method="POST" action="{{ route('scenarios.check', $scenario) }}" class="mt-4" data-answer-form>
+            <form method="POST" action="{{ ($usingQuestionSet ?? false) ? route('scenarios.set-question.check', $setQuestion) : route('scenarios.check', $scenario) }}" class="mt-4" data-answer-form>
                 @csrf
 
                 <div class="mb-3">
@@ -70,6 +69,11 @@
         </div>
     </div>
 
+    @if($usingQuestionSet ?? false)
+        @if(! $hintUsed)
+            <div class="modal fade" id="hintOneModal" tabindex="-1" aria-hidden="true"><div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h2 class="modal-title h5">Use Hint?</h2><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body">Warning: Using hint will deduct 50% of the mark for this question. Continue?</div><div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><form method="POST" action="{{ route('scenarios.set-question.hint', [$setQuestion, 1]) }}">@csrf<button class="btn btn-warning">Continue</button></form></div></div></div></div>
+        @endif
+    @else
     <div class="modal fade" id="hintModal" tabindex="-1" aria-labelledby="hintModalLabel" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
@@ -90,4 +94,5 @@
             </div>
         </div>
     </div>
+    @endif
 @endsection

@@ -28,6 +28,9 @@
                     <h2 class="h4 neon-title mb-1">Enter Lab</h2>
                     <p class="text-secondary mb-0">Authenticate to continue your shell mission.</p>
                 </div>
+                @if (session('status'))
+                    <div class="alert alert-warning border-0 shadow-sm">{{ session('status') }}</div>
+                @endif
 
                 <form method="POST" action="{{ route('login.store') }}">
                     @csrf

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\BadgeService;
+use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -43,6 +44,7 @@ class ProfileController extends Controller
             'registration_no' => ['nullable', 'string', 'max:255'],
             'staff_no' => ['nullable', 'string', 'max:255'],
             'department' => ['nullable', 'string', 'max:255'],
+            'default_avatar' => ['nullable', Rule::in(array_keys(User::defaultAvatars()))],
         ]);
 
         if ($request->hasFile('profile_photo')) {
