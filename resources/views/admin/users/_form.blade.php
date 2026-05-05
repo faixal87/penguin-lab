@@ -34,6 +34,15 @@
         @error('status')<div class="invalid-feedback">{{ $message }}</div>@enderror
     </div>
     <div class="col-md-4">
+        <label class="form-label">Role Modes</label>
+        <div class="form-check form-switch mt-2">
+            <input type="hidden" name="lecturer_mode" value="0">
+            <input class="form-check-input" type="checkbox" role="switch" id="lecturer_mode" name="lecturer_mode" value="1" @checked(old('lecturer_mode', isset($user) ? $user->canActAs('lecturer') && ($user->role === 'admin' || $user->canActAs('admin')) : (($role ?? '') === 'lecturer')))>
+            <label class="form-check-label" for="lecturer_mode">Allow Lecturer Mode</label>
+        </div>
+        <div class="form-text">Use this for users who need Admin and Lecturer modes.</div>
+    </div>
+    <div class="col-md-4">
         <label for="phone_no" class="form-label">Phone No</label>
         <input type="text" class="form-control @error('phone_no') is-invalid @enderror" id="phone_no" name="phone_no" value="{{ old('phone_no', $user->phone_no ?? '') }}">
         @error('phone_no')<div class="invalid-feedback">{{ $message }}</div>@enderror

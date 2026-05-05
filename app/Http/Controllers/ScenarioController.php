@@ -6,6 +6,7 @@ use App\Models\Scenario;
 use App\Models\StudentAnswer;
 use App\Models\QuestionSet;
 use App\Models\QuestionSetQuestion;
+use App\Services\ActivityLogger;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -165,6 +166,8 @@ class ScenarioController extends Controller
                 'hint_level' => $hintUsed ? 1 : 0,
             ]
         );
+
+        app(ActivityLogger::class)->log($request->user(), 'answer question', $request);
 
         return back()->withInput()->with('answer_result', [
             'correct' => $isCorrect,

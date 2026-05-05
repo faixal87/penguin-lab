@@ -10,11 +10,17 @@
     @if ($errors->any())<div class="alert alert-danger border-0 shadow-sm">{{ $errors->first() }}</div>@endif
     @php($total = $set->exists ? $set->currentTotal() : 0)
     @if($set->exists && $total !== 100)<div class="alert alert-warning border-0 shadow-sm">Current total is {{ $total }}/100. This set cannot be activated until it totals exactly 100 marks.</div>@endif
+    @if($set->exists && ($assignedClasses ?? collect())->isNotEmpty())
+        <div class="alert alert-warning border-0 shadow-sm">
+            This set is assigned to class(es): <strong>{{ $assignedClasses->pluck('class_name')->join(', ') }}</strong>.
+            It cannot be deleted until those assignments are removed.
+        </div>
+    @endif
 
     <div class="card border-0 shadow-sm mb-4"><div class="card-body">
         <form method="POST" action="{{ $set->exists ? route($routePrefix . '.question-sets.update', $set) : route($routePrefix . '.question-sets.store') }}" class="row g-3">
             @csrf @if($set->exists) @method('PUT') @endif
-            <div class="col-md-5"><label class="form-label">Set Name</label><input class="form-control" name="name" value="{{ old('name', $set->name) }}" required></div>
+            <div class="col-md-5"><label class="form-label">Set Name</label><input class="form-control" name="name" value="{{ old('name', $set->name) }}" required><div class="form-text">Rename the question set here.</div></div>
             <div class="col-md-2"><label class="form-label">Target Marks</label><input type="number" class="form-control" name="total_marks" value="{{ old('total_marks', $set->total_marks ?: 100) }}" required></div>
             <div class="col-md-2"><label class="form-label">Status</label><select class="form-select" name="is_active"><option value="0" @selected(!old('is_active', $set->is_active))>Inactive</option><option value="1" @selected(old('is_active', $set->is_active))>Active</option></select></div>
             <div class="col-12"><label class="form-label">Description</label><textarea class="form-control" name="description" rows="2">{{ old('description', $set->description) }}</textarea></div>
@@ -60,5 +66,27 @@
                 @endforelse
             </tbody></table>
         </div></div>
+
+        <div class="card border-0 shadow-sm mt-4">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center gap-3 flex-wrap">
+                    <div>
+                        <h2 class="h5 mb-1">Delete Question Set</h2>
+                        <p class="text-secondary mb-0">
+                            @if(($assignedClasses ?? collect())->isNotEmpty())
+                                Delete is locked because this set is assigned to one or more classes.
+                            @else
+                                This permanently deletes the set and its set-question links.
+                            @endif
+                        </p>
+                    </div>
+                    <form method="POST" action="{{ route($routePrefix . '.question-sets.destroy', $set) }}" onsubmit="return confirm('Delete this question set? This cannot be undone.')">
+                        @csrf
+                        @method('DELETE')
+                        <button class="btn btn-outline-danger" @disabled(($assignedClasses ?? collect())->isNotEmpty())>Delete Set</button>
+                    </form>
+                </div>
+            </div>
+        </div>
     @endif
 @endsection

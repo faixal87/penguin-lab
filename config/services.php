@@ -35,6 +35,11 @@ return [
         ],
     ],
 
+    'openai' => [
+        'api_key' => env('OPENAI_API_KEY'),
+        'model' => env('OPENAI_MODEL', 'gpt-5.1-mini'),
+    ],
+
     'guacamole' => [
         'base_url' => env('GUACAMOLE_BASE_URL', '#'),
         'mode' => env('GUACAMOLE_MODE', 'placeholder'),
@@ -52,7 +57,7 @@ return [
         'server_host' => env('TERMINAL_SERVER_HOST', '192.168.68.99'),
         'server_user' => env('TERMINAL_SERVER_USER'),
         'server_ssh_key_path' => env('TERMINAL_SERVER_SSH_KEY_PATH'),
-        'docker_image' => env('TERMINAL_DOCKER_IMAGE', 'ubuntu:22.04'),
+        'docker_image' => env('TERMINAL_DOCKER_IMAGE', 'penguinlab-ssh:latest'),
         'container_prefix' => env('TERMINAL_CONTAINER_PREFIX', 'penguinlab_'),
         'memory_limit' => env('TERMINAL_MEMORY_LIMIT', '512m'),
         'cpu_limit' => env('TERMINAL_CPU_LIMIT', '0.5'),

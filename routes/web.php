@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\AdminActivityLogController;
 use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\AdminFeedbackQuestionController;
 use App\Http\Controllers\AdminQuestionBankController;
@@ -16,8 +17,10 @@ use App\Http\Controllers\LecturerQuestionSetAssignmentController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\QuestionSetController;
+use App\Http\Controllers\RoleModeController;
 use App\Http\Controllers\ScoreboardController;
 use App\Http\Controllers\SemesterController;
+use App\Http\Controllers\SystemHealthController;
 use App\Http\Middleware\RoleMiddleware;
 use App\Http\Controllers\ScenarioController;
 use App\Http\Controllers\TerminalController;
@@ -33,6 +36,7 @@ Route::middleware('guest')->group(function () {
 
 Route::middleware('auth')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+    Route::post('/switch-mode', [RoleModeController::class, 'update'])->name('mode.switch');
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
     Route::get('/profile', [ProfileController::class, 'show'])->name('profile');
     Route::put('/profile', [ProfileController::class, 'update'])->name('profile.update');
@@ -95,11 +99,16 @@ Route::middleware('auth')->group(function () {
         Route::delete('/admin/users/batch-delete', [AdminUserController::class, 'batchDestroy'])->name('admin.users.batch-destroy');
         Route::get('/admin/users/{user}/edit', [AdminUserController::class, 'edit'])->name('admin.users.edit');
         Route::put('/admin/users/{user}', [AdminUserController::class, 'update'])->name('admin.users.update');
+        Route::post('/admin/users/{user}/promote-admin', [AdminUserController::class, 'promoteToAdmin'])->name('admin.users.promote-admin');
         Route::delete('/admin/users/{user}', [AdminUserController::class, 'destroy'])->name('admin.users.destroy');
         Route::put('/admin/users/{user}/password', [AdminUserController::class, 'resetPassword'])->name('admin.users.password');
         Route::get('/admin/semesters', [SemesterController::class, 'index'])->name('admin.semesters.index');
         Route::post('/admin/semesters', [SemesterController::class, 'store'])->name('admin.semesters.store');
         Route::put('/admin/semesters/{semester}/current', [SemesterController::class, 'setCurrent'])->name('admin.semesters.current');
+        Route::get('/admin/activity-logs', [AdminActivityLogController::class, 'index'])->name('admin.activity-logs.index');
+        Route::get('/admin/system-health', [SystemHealthController::class, 'index'])->name('admin.health.index');
+        Route::get('/admin/system-health/json', [SystemHealthController::class, 'json'])->name('admin.health.json');
+        Route::get('/admin/system-health/mini-json', [SystemHealthController::class, 'miniJson'])->name('admin.health.mini-json');
         Route::resource('/admin/question-bank', AdminQuestionBankController::class)->names('admin.question-bank')->parameters(['question-bank' => 'question'])->except(['show']);
         Route::resource('/admin/question-sets', AdminQuestionSetController::class)->names('admin.question-sets')->parameters(['question-sets' => 'set'])->except(['show']);
         Route::post('/admin/question-sets/{set}/questions', [AdminQuestionSetController::class, 'addQuestion'])->name('admin.question-sets.questions.add');
@@ -141,6 +150,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/feedback/control', [CourseFeedbackControlController::class, 'store'])->name('feedback.control.store');
         Route::put('/feedback/control/{control}/toggle', [CourseFeedbackControlController::class, 'toggle'])->name('feedback.control.toggle');
         Route::get('/feedback/summary', [FeedbackReportController::class, 'dashboard'])->name('feedback.summary');
+        Route::post('/feedback/summary/generate-ai', [FeedbackReportController::class, 'generateAiSummary'])->name('feedback.summary.generate-ai');
         Route::get('/feedback/raw', [FeedbackReportController::class, 'raw'])->name('feedback.raw');
         Route::get('/feedback/raw/export', [FeedbackReportController::class, 'export'])->name('feedback.raw.export');
         Route::get('/question-sets', [QuestionSetController::class, 'index'])->name('question-sets.index');

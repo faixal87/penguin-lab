@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Notification;
 use App\Models\User;
+use App\Services\BirthdayNotificationService;
 use App\Services\CourseFeedbackService;
 use App\Services\NotificationService;
 use Illuminate\Http\RedirectResponse;
@@ -16,6 +17,7 @@ class NotificationController extends Controller
 {
     public function __construct(
         private NotificationService $notifications,
+        private BirthdayNotificationService $birthdayNotifications,
         private CourseFeedbackService $feedbackControls
     ) {
     }
@@ -29,6 +31,8 @@ class NotificationController extends Controller
 
     public function unreadJson(Request $request): JsonResponse
     {
+        $this->birthdayNotifications->ensureFor($request->user());
+
         $notifications = $this->notifications->unreadUndismissedFor($request->user());
 
         return response()->json([

@@ -54,7 +54,11 @@ class AdminUserController extends Controller
     {
         $validated = $request->validate($this->rules($request, null, true));
 
+        $lecturerMode = $request->boolean('lecturer_mode');
+        unset($validated['lecturer_mode']);
+
         $validated['password'] = Hash::make($validated['password']);
+        $validated['roles'] = $this->rolesFor($validated['role'], $lecturerMode);
         User::create($validated);
 
         return redirect()->route('admin.users.index')->with('status', 'User created successfully.');
@@ -68,6 +72,8 @@ class AdminUserController extends Controller
     public function update(Request $request, User $user): RedirectResponse
     {
         $validated = $request->validate($this->rules($request, $user, false));
+        $lecturerMode = $request->boolean('lecturer_mode');
+        unset($validated['lecturer_mode']);
 
         if (empty($validated['password'])) {
             unset($validated['password']);
@@ -75,6 +81,7 @@ class AdminUserController extends Controller
             $validated['password'] = Hash::make($validated['password']);
         }
 
+        $validated['roles'] = $this->rolesFor($validated['role'], $lecturerMode, $user);
         $user->update($validated);
 
         return redirect()->route('admin.users.index')->with('status', 'User updated successfully.');
@@ -89,6 +96,22 @@ class AdminUserController extends Controller
         $user->update(['password' => Hash::make($validated['password'])]);
 
         return back()->with('status', 'Password reset successfully.');
+    }
+
+    public function promoteToAdmin(User $user): RedirectResponse
+    {
+        abort_unless($user->canActAs('lecturer') || $user->role === 'lecturer', 422);
+
+        $user->update([
+            'role' => 'admin',
+            'roles' => collect($user->availableRoles())
+                ->merge(['admin', 'lecturer'])
+                ->unique()
+                ->values()
+                ->all(),
+        ]);
+
+        return back()->with('status', "{$user->name} promoted to admin with Lecturer Mode retained.");
     }
 
     public function destroy(Request $request, User $user): RedirectResponse
@@ -150,7 +173,7 @@ class AdminUserController extends Controller
             ];
         }
 
-        if ($user->isLecturer() && $user->teachingClasses()->exists()) {
+        if ($user->canActAs('lecturer') && $user->teachingClasses()->exists()) {
             return [
                 'deleted' => false,
                 'reason' => 'Lecturer owns classes. Reassign or delete those classes first.',
@@ -190,6 +213,7 @@ class AdminUserController extends Controller
             'email' => ['required', 'email', 'max:255', Rule::unique('users')->ignore($userId)],
             'password' => [$creating ? 'required' : 'nullable', 'string', 'min:8', 'confirmed'],
             'role' => ['required', Rule::in(['admin', 'lecturer', 'student'])],
+            'lecturer_mode' => ['nullable', 'boolean'],
             'status' => ['required', 'string', 'max:50'],
             'matric_no' => ['nullable', 'string', 'max:255', Rule::unique('users')->ignore($userId)],
             'registration_no' => ['nullable', 'string', 'max:255'],
@@ -203,5 +227,20 @@ class AdminUserController extends Controller
             'container_name' => ['nullable', 'string', 'max:255'],
             'terminal_enabled' => ['nullable', 'boolean'],
         ];
+    }
+
+    private function rolesFor(string $role, bool $lecturerMode, ?User $user = null): array
+    {
+        $roles = [$role];
+
+        if ($role === 'admin' && $lecturerMode) {
+            $roles[] = 'lecturer';
+        }
+
+        if ($role === 'lecturer' && $user?->canActAs('admin')) {
+            $roles[] = 'admin';
+        }
+
+        return collect($roles)->unique()->values()->all();
     }
 }

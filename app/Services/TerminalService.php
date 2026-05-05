@@ -36,17 +36,16 @@ class TerminalService
         $containerName = $this->generateContainerName($user);
         $linuxUsername = $this->generateLinuxUsername($user);
         $linuxPassword = $this->generateLinuxPassword($user);
-        $image = config('services.terminal.docker_image', 'ubuntu:22.04');
+        $image = config('services.terminal.docker_image', 'penguinlab-ssh:latest');
         $memory = config('services.terminal.memory_limit', '512m');
         $cpus = config('services.terminal.cpu_limit', '0.5');
         $runCommand = sprintf(
-            'docker run -dit --name %s --hostname %s --network %s --memory %s --cpus %s --label shellfix_user_id=%d %s tail -f /dev/null',
+            'docker run -dit --name %s --hostname %s --network %s --memory %s --cpus %s %s',
             escapeshellarg($containerName),
-            escapeshellarg($containerName),
+            escapeshellarg($linuxUsername),
             escapeshellarg('penguinlab-net'),
             escapeshellarg($memory),
             escapeshellarg($cpus),
-            $user->id,
             escapeshellarg($image)
         );
         $ensureContainerCommand = sprintf(
@@ -58,18 +57,14 @@ class TerminalService
             $runCommand
         );
         $setupScript = implode(' && ', [
-            'if [ ! -f /root/.penguinlab_ready ]; then apt-get update -y && DEBIAN_FRONTEND=noninteractive apt-get install -y openssh-server sudo nano vim iproute2 net-tools curl grep findutils procps passwd; fi',
-            'mkdir -p /var/run/sshd',
+            'command -v sudo >/dev/null 2>&1 || { echo "sudo is not installed in terminal Docker image" >&2; exit 1; }',
+            '[ -x /usr/sbin/sshd ] || { echo "openssh-server is not installed in terminal Docker image" >&2; exit 1; }',
             'id -u ' . escapeshellarg($linuxUsername) . ' >/dev/null 2>&1 || useradd -m -s /bin/bash ' . escapeshellarg($linuxUsername),
             'echo ' . escapeshellarg($linuxUsername . ':' . $linuxPassword) . ' | chpasswd',
-            "sed -i '/PasswordAuthentication/d' /etc/ssh/sshd_config",
-            "sed -i '/ListenAddress/d' /etc/ssh/sshd_config",
-            "sed -i '/PermitRootLogin/d' /etc/ssh/sshd_config",
-            "sed -i '/UsePAM/d' /etc/ssh/sshd_config",
-            "printf '\\nPasswordAuthentication yes\\nListenAddress 0.0.0.0\\nPermitRootLogin yes\\nUsePAM yes\\n' >> /etc/ssh/sshd_config",
+            'usermod -aG sudo ' . escapeshellarg($linuxUsername),
+            'mkdir -p /var/run/sshd',
             '/usr/sbin/sshd -t',
-            '(pkill sshd || true)',
-            '/usr/sbin/sshd',
+            '(pgrep -x sshd >/dev/null 2>&1 || /usr/sbin/sshd)',
             'touch /root/.penguinlab_ready',
         ]);
         $setupCommand = sprintf(
@@ -77,11 +72,18 @@ class TerminalService
             escapeshellarg($containerName),
             escapeshellarg($setupScript)
         );
+        $waitCommand = sprintf(
+            'for i in $(seq 1 10); do docker exec %s bash -c %s && exit 0; sleep 1; done; echo %s >&2; exit 1',
+            escapeshellarg($containerName),
+            escapeshellarg('ss -tlnp | grep -q ":22"'),
+            escapeshellarg('SSH port 22 did not become ready within 10 seconds.')
+        );
 
         return sprintf(
-            '%s && %s',
+            '%s && %s && %s',
             $ensureContainerCommand,
-            $setupCommand
+            $setupCommand,
+            $waitCommand
         );
     }
 
@@ -100,6 +102,12 @@ class TerminalService
                 'output' => '',
             ];
         }
+
+        $user->forceFill([
+            'linux_username' => $this->generateLinuxUsername($user),
+            'container_name' => $this->generateContainerName($user),
+            'container_status' => 'initializing',
+        ])->save();
 
         $result = $this->executeRemoteCommand($rawCommand);
 
@@ -427,7 +435,7 @@ class TerminalService
             $output .= stream_get_contents($pipes[2]) ?: '';
             $status = proc_get_status($process);
 
-            if ((time() - $startedAt) > 5) {
+            if ((time() - $startedAt) > 15) {
                 $timedOut = true;
                 proc_terminate($process);
                 break;
@@ -452,7 +460,7 @@ class TerminalService
         if ($timedOut) {
             return [
                 'success' => false,
-                'output' => 'SSH command timed out after 5 seconds.',
+                'output' => 'SSH command timed out after 15 seconds.',
             ];
         }
 

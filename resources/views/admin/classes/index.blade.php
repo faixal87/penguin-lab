@@ -2,7 +2,7 @@
 
 @section('title', 'Manage Classes | ShellFix')
 @section('page-title', 'Manage Classes')
-@section('page-description', 'View and manage all classes and enrolled students.')
+@section('page-description', 'Select a class to manage its name, semester, and students.')
 
 @section('content')
     @if (session('status'))
@@ -59,42 +59,26 @@
                     <thead>
                         <tr>
                             <th>Class</th>
-                            <th>Course</th>
                             <th>Semester</th>
-                            <th>Lecturer</th>
-                            <th>Students</th>
                             <th class="text-end">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         @forelse ($classes as $class)
                             <tr>
-                                <td class="fw-semibold">{{ $class->class_name }}</td>
-                                <td>{{ $class->course_code }}</td>
+                                <td>
+                                    <a href="{{ route('admin.classes.show', $class) }}" class="fw-semibold text-decoration-none">
+                                        {{ $class->class_name }}
+                                    </a>
+                                </td>
                                 <td>{{ $class->semester?->name ?? '-' }}</td>
-                                <td>{{ $class->lecturer?->name ?? '-' }}</td>
-                                <td>{{ $class->students->count() }}</td>
                                 <td class="text-end">
-                                    <a href="{{ route('admin.classes.show', $class) }}" class="btn btn-sm btn-outline-primary">View</a>
-                                    <a href="{{ route('admin.classes.edit', $class) }}" class="btn btn-sm btn-outline-secondary">Edit</a>
-                                    <form method="POST" action="{{ route('admin.classes.destroy', $class) }}" class="d-inline">
-                                        @csrf
-                                        @method('DELETE')
-                                        <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete this class?')">Delete</button>
-                                    </form>
+                                    <a href="{{ route('admin.classes.show', $class) }}" class="btn btn-sm btn-outline-primary">Open</a>
                                 </td>
                             </tr>
-                            @if ($class->students->isNotEmpty())
-                                <tr>
-                                    <td colspan="6" class="bg-light text-dark">
-                                        <span class="fw-semibold">Enrolled:</span>
-                                        {{ $class->students->map(fn ($student) => $student->name . ' (' . ($student->matric_no ?? $student->registration_no ?? '-') . ')')->join(', ') }}
-                                    </td>
-                                </tr>
-                            @endif
                         @empty
                             <tr>
-                                <td colspan="6" class="text-center text-secondary py-4">No classes found.</td>
+                                <td colspan="3" class="text-center text-secondary py-4">No classes found.</td>
                             </tr>
                         @endforelse
                     </tbody>

@@ -47,6 +47,11 @@ class StudentAnswer extends Model
         return $this->belongsTo(QuestionBank::class, 'question_bank_id');
     }
 
+    public function questionSet(): BelongsTo
+    {
+        return $this->belongsTo(QuestionSet::class, 'question_set_id');
+    }
+
     public function setQuestion(): BelongsTo
     {
         return $this->belongsTo(QuestionSetQuestion::class, 'question_set_question_id');

@@ -2,7 +2,7 @@
 
 @section('title', 'Admin Dashboard | ShellFix')
 @section('page-title', 'Admin Dashboard')
-@section('page-description', 'Review users, classes, login logs, and exam results.')
+@section('page-description', 'Review users, classes, and exam results.')
 
 @section('content')
     <div class="alert alert-info border-0 shadow-sm">
@@ -39,7 +39,10 @@
 
     <div class="card border-0 shadow-sm mb-4">
         <div class="card-body">
-            <h2 class="h5">Users</h2>
+            <div class="d-flex justify-content-between align-items-center gap-3 flex-wrap mb-3">
+                <h2 class="h5 mb-0">Users</h2>
+                <a href="{{ route('admin.activity-logs.index') }}" class="btn btn-sm btn-outline-primary">Open Activity Logs</a>
+            </div>
             <div class="table-responsive">
                 <table class="table align-middle">
                     <thead>
@@ -51,7 +54,6 @@
                             <th>Status</th>
                             <th>Last Login</th>
                             <th>IP</th>
-                            <th>User Agent</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -64,7 +66,6 @@
                                 <td>{{ $user->status }}</td>
                                 <td>{{ $user->last_login_at?->format('Y-m-d H:i') ?? '-' }}</td>
                                 <td>{{ $user->last_login_ip ?? '-' }}</td>
-                                <td class="text-truncate" style="max-width: 240px;">{{ $user->last_user_agent ?? '-' }}</td>
                             </tr>
                         @endforeach
                     </tbody>
@@ -118,7 +119,7 @@
                         @foreach ($examResults as $result)
                             <tr>
                                 <td>{{ $result->user?->name ?? 'Unknown' }}</td>
-                                <td>Set {{ $result->set_no }}</td>
+                                <td>{{ $result->questionSet?->name ?? ($result->set_no ? 'Set ' . $result->set_no : 'Question Set') }}</td>
                                 <td>{{ $result->answered_count }}</td>
                                 <td>{{ $result->total_score }}</td>
                             </tr>
@@ -129,61 +130,4 @@
         </div>
     </div>
 
-    <div class="card border-0 shadow-sm" id="login-logs">
-        <div class="card-body">
-            <div class="d-flex justify-content-between gap-3 flex-wrap align-items-end mb-3">
-                <h2 class="h5 mb-0">Login Logs</h2>
-                <form method="GET" action="{{ route('dashboard') }}" class="row g-2 align-items-end">
-                    <div class="col-auto">
-                        <label for="login_log_per_page" class="form-label small mb-1">Rows</label>
-                        <select class="form-select form-select-sm" id="login_log_per_page" name="login_log_per_page">
-                            @foreach ([10, 20, 50] as $size)
-                                <option value="{{ $size }}" @selected($loginLogPerPage === $size)>{{ $size }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div class="col-auto">
-                        <label for="login_log_search" class="form-label small mb-1">Search</label>
-                        <input type="search" class="form-control form-control-sm" id="login_log_search" name="login_log_search" value="{{ $loginLogSearch }}" placeholder="Name, email, IP, browser">
-                    </div>
-                    <div class="col-auto">
-                        <button class="btn btn-sm btn-primary">Filter</button>
-                        <a href="{{ route('dashboard') }}" class="btn btn-sm btn-outline-secondary">Reset</a>
-                    </div>
-                </form>
-            </div>
-            <div class="table-responsive">
-                <table class="table align-middle mb-0">
-                    <thead>
-                        <tr>
-                            <th>User</th>
-                            <th>IP Address</th>
-                            <th>Browser</th>
-                            <th>Platform</th>
-                            <th>Logged In</th>
-                            <th>User Agent</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach ($loginLogs as $log)
-                            <tr>
-                                <td>{{ $log->user?->name ?? '-' }}</td>
-                                <td>{{ $log->ip_address ?? '-' }}</td>
-                                <td>{{ $log->browser ?? '-' }}</td>
-                                <td>{{ $log->platform ?? '-' }}</td>
-                                <td>{{ $log->logged_in_at?->format('Y-m-d H:i') ?? '-' }}</td>
-                                <td class="text-truncate" style="max-width: 260px;">{{ $log->user_agent ?? '-' }}</td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
-            </div>
-            <div class="d-flex justify-content-between align-items-center mt-3">
-                <div class="text-secondary small">
-                    Showing {{ $loginLogs->firstItem() ?? 0 }} to {{ $loginLogs->lastItem() ?? 0 }} of {{ $loginLogs->total() }} login records
-                </div>
-                {{ $loginLogs->links() }}
-            </div>
-        </div>
-    </div>
 @endsection

@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 use App\Services\CourseFeedbackService;
+use App\Services\BirthdayNotificationService;
 use App\Services\NotificationService;
 use App\Models\Semester;
 
@@ -49,6 +50,10 @@ class AppServiceProvider extends ServiceProvider
             }
 
             if (Schema::hasTable('notifications') && Schema::hasTable('notification_reads')) {
+                if (Schema::hasColumn('users', 'date_of_birth')) {
+                    app(BirthdayNotificationService::class)->ensureFor($user);
+                }
+
                 $notificationService = app(NotificationService::class);
 
                 $view->with([

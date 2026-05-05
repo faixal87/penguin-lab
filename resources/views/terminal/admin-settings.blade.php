@@ -99,6 +99,8 @@
                                 $classTerminalEnabled = $student->enrolledClasses->contains(fn ($class) => $class->terminal_enabled);
                                 $terminalAccess = $student->terminal_enabled || $classTerminalEnabled;
                                 $guacamoleStatus = $student->guacamole_connection_status ?? 'Not synced';
+                                $containerStatus = $student->container_status ?: 'not_started';
+                                $isInitializing = $containerStatus === 'initializing';
                             @endphp
                             <tr>
                                 <td>
@@ -114,7 +116,11 @@
                                         {{ $terminalAccess ? 'Enabled' : 'Disabled' }}
                                     </span>
                                 </td>
-                                <td>{{ $student->container_status ?: 'not_started' }}</td>
+                                <td>
+                                    <span class="badge {{ $isInitializing ? 'text-bg-warning' : ($containerStatus === 'running' ? 'text-bg-success' : ($containerStatus === 'error' ? 'text-bg-danger' : 'text-bg-secondary')) }}">
+                                        {{ str_replace('_', ' ', $containerStatus) }}
+                                    </span>
+                                </td>
                                 <td>
                                     <span class="badge {{ $guacamoleStatus === 'Synced' ? 'text-bg-success' : ($guacamoleStatus === 'Failed' ? 'text-bg-danger' : 'text-bg-secondary') }}">
                                         {{ $guacamoleStatus }}
@@ -134,10 +140,12 @@
                                             <input type="hidden" name="command_type" value="stop">
                                             <button type="submit" class="btn btn-sm btn-outline-warning">Preview Stop</button>
                                         </form>
-                                        <form method="POST" action="{{ route('admin.terminal.run', $student) }}">
+                                        <form method="POST" action="{{ route('admin.terminal.run', $student) }}" onsubmit="this.querySelector('button[type=submit]').disabled = true;">
                                             @csrf
                                             <input type="hidden" name="command_type" value="start">
-                                            <button type="submit" class="btn btn-sm btn-primary" onclick="return confirm('Start this student terminal on the remote server?')">Start</button>
+                                            <button type="submit" class="btn btn-sm btn-primary" {{ $isInitializing ? 'disabled' : '' }} onclick="return confirm('Start this student terminal on the remote server?')">
+                                                {{ $isInitializing ? 'Initializing...' : 'Start' }}
+                                            </button>
                                         </form>
                                         <form method="POST" action="{{ route('admin.terminal.run', $student) }}">
                                             @csrf
@@ -146,7 +154,7 @@
                                         </form>
                                         <form method="POST" action="{{ route('admin.terminal.sync-guacamole', $student) }}">
                                             @csrf
-                                            <button type="submit" class="btn btn-sm btn-outline-primary">Sync Guacamole Connection</button>
+                                            <button type="submit" class="btn btn-sm btn-outline-primary" {{ $isInitializing ? 'disabled' : '' }}>Sync Guacamole Connection</button>
                                         </form>
                                         <form method="POST" action="{{ route('admin.terminal.reset-guacamole-password', $student) }}">
                                             @csrf

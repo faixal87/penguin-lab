@@ -13,7 +13,35 @@
         target.addEventListener('click', () => body.classList.remove('sidebar-pinned'));
     });
 
-    document.querySelectorAll('.shellfix-sidebar .nav-link').forEach((link) => {
+    const sidebarMenu = document.getElementById('shellfixSidebarMenu');
+
+    if (sidebarMenu && window.bootstrap) {
+        const submenus = Array.from(sidebarMenu.querySelectorAll('.sidebar-submenu.collapse'));
+        const buttonFor = (submenu) => sidebarMenu.querySelector(`[data-bs-target="#${submenu.id}"]`);
+
+        submenus.forEach((submenu) => {
+            const button = buttonFor(submenu);
+            button?.classList.toggle('is-open', submenu.classList.contains('show'));
+
+            submenu.addEventListener('show.bs.collapse', () => {
+                submenus.forEach((other) => {
+                    if (other !== submenu) {
+                        window.bootstrap.Collapse.getOrCreateInstance(other, { toggle: false }).hide();
+                    }
+                });
+
+                button?.classList.add('is-open');
+                button?.setAttribute('aria-expanded', 'true');
+            });
+
+            submenu.addEventListener('hide.bs.collapse', () => {
+                button?.classList.remove('is-open');
+                button?.setAttribute('aria-expanded', 'false');
+            });
+        });
+    }
+
+    document.querySelectorAll('.shellfix-sidebar a.nav-link').forEach((link) => {
         link.addEventListener('click', () => {
             if (window.matchMedia('(max-width: 991.98px)').matches) {
                 body.classList.remove('sidebar-pinned');

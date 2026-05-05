@@ -17,6 +17,7 @@ use Illuminate\Notifications\Notifiable;
     'email',
     'password',
     'role',
+    'roles',
     'matric_no',
     'status',
     'last_login_at',
@@ -25,6 +26,7 @@ use Illuminate\Notifications\Notifiable;
     'profile_photo',
     'default_avatar',
     'phone_no',
+    'date_of_birth',
     'program',
     'semester',
     'class_name',
@@ -55,6 +57,8 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'last_login_at' => 'datetime',
+            'date_of_birth' => 'date',
+            'roles' => 'array',
             'terminal_last_started_at' => 'datetime',
             'terminal_last_stopped_at' => 'datetime',
             'terminal_enabled' => 'boolean',
@@ -64,17 +68,46 @@ class User extends Authenticatable
 
     public function isAdmin(): bool
     {
-        return $this->role === 'admin';
+        return $this->activeRole() === 'admin';
     }
 
     public function isLecturer(): bool
     {
-        return $this->role === 'lecturer';
+        return $this->activeRole() === 'lecturer';
     }
 
     public function isStudent(): bool
     {
-        return $this->role === 'student';
+        return $this->activeRole() === 'student';
+    }
+
+    public function availableRoles(): array
+    {
+        $roles = $this->roles ?: [$this->role];
+        $roles[] = $this->role;
+        $allowed = ['admin', 'lecturer', 'student'];
+
+        return collect($roles)
+            ->filter(fn ($role) => in_array($role, $allowed, true))
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    public function canActAs(string $role): bool
+    {
+        return in_array($role, $this->availableRoles(), true);
+    }
+
+    public function activeRole(): string
+    {
+        $sessionRole = auth()->id() === $this->id ? session('active_role') : null;
+
+        if ($sessionRole && $this->canActAs($sessionRole)) {
+            return $sessionRole;
+        }
+
+        return $this->role;
     }
 
     public function teachingClasses(): HasMany

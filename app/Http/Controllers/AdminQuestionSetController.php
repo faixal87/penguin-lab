@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\QuestionBank;
 use App\Models\QuestionSet;
 use App\Models\QuestionSetQuestion;
+use Illuminate\Support\Collection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -14,7 +15,10 @@ class AdminQuestionSetController extends Controller
     public function index(Request $request): View
     {
         return view('admin.question-sets.index', [
-            'sets' => $this->manageableSets($request)->with('setQuestions.question')->latest()->get(),
+            'sets' => $this->manageableSets($request)
+                ->with(['setQuestions.question', 'classes', 'legacyClasses'])
+                ->latest()
+                ->get(),
             'routePrefix' => $this->routePrefix($request),
         ]);
     }
@@ -49,9 +53,10 @@ class AdminQuestionSetController extends Controller
         abort_unless($this->canManage($request, $set), 403);
 
         return view('admin.question-sets.form', [
-            'set' => $set->load('setQuestions.question'),
+            'set' => $set->load('setQuestions.question', 'classes', 'legacyClasses'),
             'questions' => $this->visibleQuestions($request)->where('is_active', true)->orderBy('category')->orderBy('title')->get(),
             'routePrefix' => $this->routePrefix($request),
+            'assignedClasses' => $this->assignedClasses($set),
         ]);
     }
 
@@ -79,6 +84,15 @@ class AdminQuestionSetController extends Controller
     public function destroy(Request $request, QuestionSet $set): RedirectResponse
     {
         abort_unless($this->canManage($request, $set), 403);
+
+        $assignedClasses = $this->assignedClasses($set);
+
+        if ($assignedClasses->isNotEmpty()) {
+            return back()->with(
+                'error',
+                'This question set is assigned to class(es): ' . $assignedClasses->pluck('class_name')->join(', ') . '. Remove the assignment before deleting.'
+            );
+        }
 
         $set->delete();
 
@@ -196,6 +210,16 @@ class AdminQuestionSetController extends Controller
     {
         return $request->user()->isAdmin()
             || ($request->user()->isLecturer() && (int) $set->created_by === $request->user()->id);
+    }
+
+    private function assignedClasses(QuestionSet $set): Collection
+    {
+        $set->loadMissing('classes', 'legacyClasses');
+
+        return $set->classes
+            ->merge($set->legacyClasses)
+            ->unique('id')
+            ->values();
     }
 
     private function routePrefix(Request $request): string

@@ -5,13 +5,17 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use App\Models\Semester;
 use App\Services\BadgeService;
+use App\Services\ScoreService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class ScoreboardController extends Controller
 {
-    public function __construct(private BadgeService $badgeService)
+    public function __construct(
+        private BadgeService $badgeService,
+        private ScoreService $scores
+    )
     {
     }
 
@@ -39,14 +43,15 @@ class ScoreboardController extends Controller
                     $query->where('semester_id', $currentSemester->id);
                 }
                 $query->with('semester');
-            }])
-            ->withSum('studentAnswers as total_score', 'score_awarded');
+            }]);
+
+        $students = $this->scores->withTotalScore($students);
 
         match ($sort) {
-            'lowest' => $students->orderBy('total_score')->orderBy('name'),
-            'name' => $students->orderBy('name'),
-            'matric_no' => $students->orderBy('matric_no')->orderBy('registration_no')->orderBy('name'),
-            default => $students->orderByDesc('total_score')->orderBy('name'),
+            'lowest' => $students->orderBy('total_score')->orderBy('users.name'),
+            'name' => $students->orderBy('users.name'),
+            'matric_no' => $students->orderBy('users.matric_no')->orderBy('users.registration_no')->orderBy('users.name'),
+            default => $students->orderByDesc('total_score')->orderBy('users.name'),
         };
 
         return view('scoreboard.index', [

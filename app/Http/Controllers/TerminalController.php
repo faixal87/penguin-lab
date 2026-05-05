@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\SchoolClass;
 use App\Models\User;
+use App\Services\ActivityLogger;
 use App\Services\TerminalService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -11,7 +12,10 @@ use Illuminate\View\View;
 
 class TerminalController extends Controller
 {
-    public function __construct(private TerminalService $terminalService)
+    public function __construct(
+        private TerminalService $terminalService,
+        private ActivityLogger $activityLogger
+    )
     {
     }
 
@@ -120,9 +124,21 @@ class TerminalController extends Controller
             'command_type' => ['required', 'in:start,stop'],
         ]);
 
+        if ($validated['command_type'] === 'start' && $user->container_status === 'initializing') {
+            return back()->with('error', 'Terminal is still initializing. Please wait until SSH is ready.');
+        }
+
         $result = $validated['command_type'] === 'start'
             ? $this->terminalService->startTerminal($user)
             : $this->terminalService->stopTerminal($user);
+
+        if ($result['success'] && $result['executed']) {
+            $this->activityLogger->log(
+                $user,
+                $validated['command_type'] === 'start' ? 'start terminal' : 'stop terminal',
+                $request
+            );
+        }
 
         $sessionPayload = [
             'student' => $user->name,
@@ -143,6 +159,10 @@ class TerminalController extends Controller
     {
         abort_unless($request->user()->isAdmin(), 403);
         abort_unless($user->isStudent(), 403);
+
+        if ($user->container_status === 'initializing') {
+            return back()->with('error', 'Terminal is still initializing. Please sync Guacamole after SSH is ready.');
+        }
 
         $result = $this->terminalService->createOrUpdateGuacamoleConnection($user);
 

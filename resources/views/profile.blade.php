@@ -65,20 +65,15 @@
                                 <input type="text" class="form-control @error('phone_no') is-invalid @enderror" id="phone_no" name="phone_no" value="{{ old('phone_no', $user->phone_no) }}">
                                 @error('phone_no')<div class="invalid-feedback">{{ $message }}</div>@enderror
                             </div>
+                            <div class="col-md-6">
+                                <label for="date_of_birth" class="form-label">Date of Birth</label>
+                                <input type="date" class="form-control @error('date_of_birth') is-invalid @enderror" id="date_of_birth" name="date_of_birth" value="{{ old('date_of_birth', $user->date_of_birth?->format('Y-m-d')) }}">
+                                @error('date_of_birth')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                            </div>
                             <div class="col-md-4">
                                 <label for="program" class="form-label">Program</label>
                                 <input type="text" class="form-control @error('program') is-invalid @enderror" id="program" name="program" value="{{ old('program', $user->program) }}">
                                 @error('program')<div class="invalid-feedback">{{ $message }}</div>@enderror
-                            </div>
-                            <div class="col-md-4">
-                                <label for="semester" class="form-label">Semester</label>
-                                <input type="text" class="form-control @error('semester') is-invalid @enderror" id="semester" name="semester" value="{{ old('semester', $user->semester) }}">
-                                @error('semester')<div class="invalid-feedback">{{ $message }}</div>@enderror
-                            </div>
-                            <div class="col-md-4">
-                                <label for="class_name" class="form-label">Class Name</label>
-                                <input type="text" class="form-control @error('class_name') is-invalid @enderror" id="class_name" name="class_name" value="{{ old('class_name', $user->class_name) }}">
-                                @error('class_name')<div class="invalid-feedback">{{ $message }}</div>@enderror
                             </div>
 
                             @if ($user->isStudent())
@@ -95,11 +90,6 @@
                             @endif
 
                             @if ($user->isLecturer())
-                                <div class="col-md-6">
-                                    <label for="staff_no" class="form-label">Staff No</label>
-                                    <input type="text" class="form-control @error('staff_no') is-invalid @enderror" id="staff_no" name="staff_no" value="{{ old('staff_no', $user->staff_no) }}">
-                                    @error('staff_no')<div class="invalid-feedback">{{ $message }}</div>@enderror
-                                </div>
                                 <div class="col-md-6">
                                     <label for="department" class="form-label">Department</label>
                                     <input type="text" class="form-control @error('department') is-invalid @enderror" id="department" name="department" value="{{ old('department', $user->department) }}">

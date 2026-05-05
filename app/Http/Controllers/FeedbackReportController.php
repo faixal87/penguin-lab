@@ -2,71 +2,52 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AiFeedbackSummary;
 use App\Models\FeedbackAnswer;
 use App\Models\FeedbackQuestion;
 use App\Models\SchoolClass;
 use App\Models\User;
+use App\Services\OpenAIService;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Illuminate\View\View;
 
 class FeedbackReportController extends Controller
 {
+    public function __construct(private OpenAIService $openAI)
+    {
+    }
+
     public function dashboard(Request $request): View
     {
-        $answers = $this->filteredAnswers($request)->get();
-        $questionAverages = $answers
-            ->groupBy('question_id')
-            ->map(function ($items) {
-                $question = $items->first()->question;
+        return view('feedback.summary', $this->summaryPayload($request));
+    }
 
-                return (object) [
-                    'question_text' => $question->question_text,
-                    'category' => $question->category,
-                    'average_rating' => $items->avg('rating'),
-                    'response_count' => $items->count(),
-                ];
-            })
-            ->sortBy([['category', 'asc'], ['question_text', 'asc']])
-            ->values();
+    public function generateAiSummary(Request $request): RedirectResponse
+    {
+        $this->authorizeSummaryScope($request);
 
-        $categoryAverages = $answers
-            ->groupBy(fn ($answer) => $answer->question->category)
-            ->map(fn ($items, $category) => (object) [
-                'category' => $category,
-                'average_rating' => $items->avg('rating'),
-                'response_count' => $items->count(),
-            ])
-            ->sortBy('category')
-            ->values();
+        $payload = $this->summaryPayload($request);
+        $fallbackSummary = $this->ruleSummaryText($payload['aiSummary']);
+        $result = $this->openAI->generateFeedbackSummary($payload['promptData'], $fallbackSummary);
 
-        $classStats = $this->classStats($answers, $request);
-        $ratingDistribution = collect(range(1, 5))->map(fn ($rating) => (object) [
-            'rating' => $rating,
-            'count' => $answers->where('rating', $rating)->count(),
+        AiFeedbackSummary::create([
+            'generated_by' => $request->user()->id,
+            'scope_type' => $request->filled('class_id') ? 'class' : 'all',
+            'class_id' => $request->filled('class_id') ? (int) $request->input('class_id') : null,
+            'prompt_data' => $payload['promptData'],
+            'summary' => $result['summary'],
         ]);
-        $aiSummary = $this->aiSummary(
-            $answers,
-            $categoryAverages,
-            $questionAverages,
-            $classStats,
-            $answers->avg('rating')
-        );
 
-        return view('feedback.summary', [
-            'filters' => $this->filterOptions($request),
-            'selected' => $request->only(['class_id', 'lecturer_id', 'semester', 'category']),
-            'totalRespondents' => $answers->pluck('user_id')->unique()->count(),
-            'overallAverage' => $answers->avg('rating'),
-            'categoryAverages' => $categoryAverages,
-            'questionAverages' => $questionAverages,
-            'topQuestions' => $questionAverages->where('response_count', '>', 0)->sortByDesc('average_rating')->take(5),
-            'lowQuestions' => $questionAverages->where('response_count', '>', 0)->sortBy('average_rating')->take(5),
-            'classStats' => $classStats,
-            'ratingDistribution' => $ratingDistribution,
-            'aiSummary' => $aiSummary,
-        ]);
+        $message = $result['source'] === 'openai'
+            ? 'AI summary generated using OpenAI.'
+            : ($result['error'] ?: 'Rule-based summary generated.');
+
+        return redirect()
+            ->route('feedback.summary', $request->only(['class_id', 'lecturer_id', 'semester', 'category']))
+            ->with($result['source'] === 'openai' ? 'status' : 'warning', $message);
     }
 
     public function raw(Request $request): View
@@ -102,6 +83,149 @@ class FeedbackReportController extends Controller
         }, 'shellfix-feedback.csv', ['Content-Type' => 'text/csv']);
     }
 
+    private function summaryPayload(Request $request): array
+    {
+        $answers = $this->filteredAnswers($request)->get();
+        $questionAverages = $answers
+            ->groupBy('question_id')
+            ->map(function ($items) {
+                $question = $items->first()->question;
+
+                return (object) [
+                    'question_text' => $question->question_text,
+                    'category' => $question->category,
+                    'average_rating' => $items->avg('rating'),
+                    'response_count' => $items->count(),
+                ];
+            })
+            ->sortBy([['category', 'asc'], ['question_text', 'asc']])
+            ->values();
+
+        $categoryAverages = $answers
+            ->groupBy(fn ($answer) => $answer->question->category)
+            ->map(fn ($items, $category) => (object) [
+                'category' => $category,
+                'average_rating' => $items->avg('rating'),
+                'response_count' => $items->count(),
+            ])
+            ->sortBy('category')
+            ->values();
+
+        $classStats = $this->classStats($answers, $request);
+        $ratingDistribution = collect(range(1, 5))->map(fn ($rating) => (object) [
+            'rating' => $rating,
+            'count' => $answers->where('rating', $rating)->count(),
+        ]);
+        $overallAverage = $answers->avg('rating');
+        $aiSummary = $this->aiSummary(
+            $answers,
+            $categoryAverages,
+            $questionAverages,
+            $classStats,
+            $overallAverage
+        );
+        $topQuestions = $questionAverages->where('response_count', '>', 0)->sortByDesc('average_rating')->take(5);
+        $lowQuestions = $questionAverages->where('response_count', '>', 0)->sortBy('average_rating')->take(5);
+
+        return [
+            'filters' => $this->filterOptions($request),
+            'selected' => $request->only(['class_id', 'lecturer_id', 'semester', 'category']),
+            'totalRespondents' => $answers->pluck('user_id')->unique()->count(),
+            'overallAverage' => $overallAverage,
+            'categoryAverages' => $categoryAverages,
+            'questionAverages' => $questionAverages,
+            'topQuestions' => $topQuestions,
+            'lowQuestions' => $lowQuestions,
+            'classStats' => $classStats,
+            'ratingDistribution' => $ratingDistribution,
+            'aiSummary' => $aiSummary,
+            'latestAiSummary' => $this->latestAiSummary($request),
+            'promptData' => $this->promptData($request, $answers, $categoryAverages, $topQuestions, $lowQuestions, $classStats, $overallAverage),
+        ];
+    }
+
+    private function authorizeSummaryScope(Request $request): void
+    {
+        $request->validate([
+            'class_id' => ['nullable', 'integer', 'exists:classes,id'],
+            'lecturer_id' => ['nullable', 'integer', 'exists:users,id'],
+            'semester' => ['nullable', 'string', 'max:255'],
+            'category' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        if ($request->filled('class_id') && $request->user()->isLecturer()) {
+            $class = SchoolClass::findOrFail($request->input('class_id'));
+            abort_unless((int) $class->lecturer_id === (int) $request->user()->id, 403);
+        }
+    }
+
+    private function latestAiSummary(Request $request): ?AiFeedbackSummary
+    {
+        return AiFeedbackSummary::query()
+            ->with(['generator', 'schoolClass'])
+            ->where('generated_by', $request->user()->id)
+            ->where('scope_type', $request->filled('class_id') ? 'class' : 'all')
+            ->when(
+                $request->filled('class_id'),
+                fn ($query) => $query->where('class_id', $request->input('class_id')),
+                fn ($query) => $query->whereNull('class_id')
+            )
+            ->latest('created_at')
+            ->first();
+    }
+
+    private function promptData(Request $request, $answers, $categoryAverages, $topQuestions, $lowQuestions, $classStats, ?float $overallAverage): array
+    {
+        return [
+            'scope' => [
+                'type' => $request->filled('class_id') ? 'class' : 'all',
+                'class_id' => $request->filled('class_id') ? (int) $request->input('class_id') : null,
+                'semester_filter' => $request->input('semester'),
+                'category_filter' => $request->input('category'),
+            ],
+            'overall_average' => $overallAverage ? round((float) $overallAverage, 2) : null,
+            'response_count' => [
+                'respondents' => $answers->pluck('user_id')->unique()->count(),
+                'ratings' => $answers->count(),
+            ],
+            'average_by_category' => $categoryAverages->map(fn ($item) => [
+                'category' => $item->category,
+                'average_rating' => $item->average_rating ? round((float) $item->average_rating, 2) : null,
+                'response_count' => $item->response_count,
+            ])->values()->all(),
+            'top_5_highest_questions' => $topQuestions->map(fn ($item) => [
+                'question' => $item->question_text,
+                'category' => $item->category,
+                'average_rating' => round((float) $item->average_rating, 2),
+                'response_count' => $item->response_count,
+            ])->values()->all(),
+            'top_5_lowest_questions' => $lowQuestions->map(fn ($item) => [
+                'question' => $item->question_text,
+                'category' => $item->category,
+                'average_rating' => round((float) $item->average_rating, 2),
+                'response_count' => $item->response_count,
+            ])->values()->all(),
+            'class_comparison' => $classStats->map(fn ($item) => [
+                'class_name' => $item->class_name,
+                'average_rating' => $item->average_rating ? round((float) $item->average_rating, 2) : null,
+                'respondents' => $item->response_count,
+                'rating_count' => $item->rating_count,
+            ])->values()->all(),
+        ];
+    }
+
+    private function ruleSummaryText(array $summary): string
+    {
+        return implode("\n\n", [
+            "## Overall interpretation\n{$summary['learningImpact']}",
+            "## Strengths\n{$summary['strengths']}",
+            "## Weaknesses\n{$summary['weaknesses']}",
+            "## Suggested CQI actions\n{$summary['cqi']}",
+            "## Research paper paragraph draft\n{$summary['paperParagraph']}",
+            "## Possible discussion points\n- {$summary['engagement']}\n- {$summary['classComparison']}\n- Compare category-level averages with the lowest-rated question items to prioritize improvements.",
+        ]);
+    }
+
     private function filteredAnswers(Request $request): Builder
     {
         $user = $request->user();
@@ -112,7 +236,7 @@ class FeedbackReportController extends Controller
                 $query->where('role', 'student');
 
                 if ($request->filled('semester')) {
-                    $query->where('semester', $request->query('semester'));
+                    $query->where('semester', $request->input('semester'));
                 }
 
                 if ($user->isLecturer()) {
@@ -120,16 +244,16 @@ class FeedbackReportController extends Controller
                 }
 
                 if ($request->filled('class_id')) {
-                    $query->whereHas('enrolledClasses', fn (Builder $classQuery) => $classQuery->where('classes.id', $request->query('class_id')));
+                    $query->whereHas('enrolledClasses', fn (Builder $classQuery) => $classQuery->where('classes.id', $request->input('class_id')));
                 }
 
                 if ($user->isAdmin() && $request->filled('lecturer_id')) {
-                    $query->whereHas('enrolledClasses', fn (Builder $classQuery) => $classQuery->where('lecturer_id', $request->query('lecturer_id')));
+                    $query->whereHas('enrolledClasses', fn (Builder $classQuery) => $classQuery->where('lecturer_id', $request->input('lecturer_id')));
                 }
             })
             ->whereHas('question', function (Builder $query) use ($request) {
                 if ($request->filled('category')) {
-                    $query->where('category', $request->query('category'));
+                    $query->where('category', $request->input('category'));
                 }
             });
     }
@@ -154,7 +278,7 @@ class FeedbackReportController extends Controller
         $classes = $answer->user->enrolledClasses;
 
         if ($request->filled('class_id')) {
-            $classes = $classes->where('id', (int) $request->query('class_id'));
+            $classes = $classes->where('id', (int) $request->input('class_id'));
         }
 
         if ($request->user()->isLecturer()) {
@@ -162,7 +286,7 @@ class FeedbackReportController extends Controller
         }
 
         if ($request->user()->isAdmin() && $request->filled('lecturer_id')) {
-            $classes = $classes->where('lecturer_id', (int) $request->query('lecturer_id'));
+            $classes = $classes->where('lecturer_id', (int) $request->input('lecturer_id'));
         }
 
         return $classes->pluck('class_name')->join(', ');
@@ -175,7 +299,7 @@ class FeedbackReportController extends Controller
                 $classes = $answer->user->enrolledClasses;
 
                 if ($request->filled('class_id')) {
-                    $classes = $classes->where('id', (int) $request->query('class_id'));
+                    $classes = $classes->where('id', (int) $request->input('class_id'));
                 }
 
                 if ($request->user()->isLecturer()) {
@@ -183,7 +307,7 @@ class FeedbackReportController extends Controller
                 }
 
                 if ($request->user()->isAdmin() && $request->filled('lecturer_id')) {
-                    $classes = $classes->where('lecturer_id', (int) $request->query('lecturer_id'));
+                    $classes = $classes->where('lecturer_id', (int) $request->input('lecturer_id'));
                 }
 
                 return $classes->map(fn ($class) => [

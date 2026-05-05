@@ -25,12 +25,17 @@
                         Enabled by class: {{ $enabledByClass ? 'Yes' : 'No' }}<br>
                         Linux username: {{ $linuxUsername }}<br>
                         Guacamole username: {{ $guacamoleUsername }}<br>
-                        Container status: {{ str_replace('_', ' ', $containerStatus) }}
+                        Container status:
+                        <span class="badge {{ $containerStatus === 'initializing' ? 'text-bg-warning' : ($containerStatus === 'running' ? 'text-bg-success' : ($containerStatus === 'error' ? 'text-bg-danger' : 'text-bg-secondary')) }}">
+                            {{ str_replace('_', ' ', $containerStatus) }}
+                        </span>
                     </div>
 
                     <div class="d-flex gap-2 mt-4">
                         @if (! $terminalEnabled)
                             <span class="btn btn-outline-secondary disabled">Terminal Disabled</span>
+                        @elseif ($containerStatus === 'initializing')
+                            <span class="btn btn-outline-warning disabled">Terminal Initializing</span>
                         @elseif ($containerStatus !== 'running')
                             <span class="btn btn-outline-secondary disabled">Waiting for Container</span>
                         @else

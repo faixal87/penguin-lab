@@ -21,8 +21,13 @@
         <div class="col-md-4">
             <div class="card border-0 shadow-sm stat-card">
                 <div class="card-body">
-                    <h2 class="h6 text-secondary">Total Score</h2>
-                    <p class="display-6 fw-semibold mb-0">{{ $totalScore ?? 0 }}</p>
+                    <h2 class="h6 text-secondary">Latest Set Score</h2>
+                    @if ($latestAttempt)
+                        <p class="display-6 fw-semibold mb-0">{{ rtrim(rtrim(number_format((float) $latestAttempt['total_score'], 2, '.', ''), '0'), '.') }}</p>
+                        <div class="text-secondary small">{{ $latestAttempt['label'] }} | Total accumulated: {{ rtrim(rtrim(number_format((float) ($totalScore ?? 0), 2, '.', ''), '0'), '.') }}</div>
+                    @else
+                        <p class="h4 fw-semibold mb-0">No attempt yet</p>
+                    @endif
                 </div>
             </div>
         </div>

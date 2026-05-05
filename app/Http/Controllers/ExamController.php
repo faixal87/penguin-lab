@@ -6,13 +6,17 @@ use App\Models\StudentAnswer;
 use App\Models\User;
 use App\Models\Semester;
 use App\Services\BadgeService;
+use App\Services\ScoreService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 class ExamController extends Controller
 {
-    public function __construct(private BadgeService $badgeService)
+    public function __construct(
+        private BadgeService $badgeService,
+        private ScoreService $scores
+    )
     {
     }
 
@@ -55,14 +59,14 @@ class ExamController extends Controller
                     $query->where('semester_id', $currentSemester->id);
                 }
                 $query->with('semester');
-            }])
-            ->withSum('studentAnswers as total_score', 'score_awarded')
-            ->withCount('studentAnswers as answered_count');
+            }]);
 
-        $scores = $studentQuery->get()
-            ->sortByDesc(fn (User $student) => (float) ($student->total_score ?? 0))
-            ->take(10)
-            ->values();
+        $scores = $this->scores->withTotalScore($studentQuery)
+            ->withCount('studentAnswers as answered_count')
+            ->orderByDesc('total_score')
+            ->orderBy('users.name')
+            ->limit(10)
+            ->get();
 
         return view('leaderboard', [
             'scores' => $scores,

@@ -26,6 +26,11 @@ class QuestionSet extends Model
             ->withTimestamps();
     }
 
+    public function legacyClasses(): HasMany
+    {
+        return $this->hasMany(SchoolClass::class);
+    }
+
     public function assignedStudents(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'question_set_user', 'question_set_id', 'user_id')

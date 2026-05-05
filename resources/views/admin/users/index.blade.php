@@ -112,7 +112,12 @@
                                     <div class="fw-semibold">{{ $user->name }}</div>
                                     <div class="text-secondary small">{{ $user->email }}</div>
                                 </td>
-                                <td><span class="badge text-bg-secondary">{{ $user->role }}</span></td>
+                                <td>
+                                    <span class="badge text-bg-secondary">{{ $user->role }}</span>
+                                    @if (count($user->availableRoles()) > 1)
+                                        <div class="text-secondary small mt-1">Modes: {{ collect($user->availableRoles())->map(fn ($role) => ucfirst($role))->join(', ') }}</div>
+                                    @endif
+                                </td>
                                 <td>{{ $user->status }}</td>
                                 <td>
                                     <span class="badge {{ $user->terminal_enabled ? 'text-bg-success' : 'text-bg-secondary' }}">
@@ -125,6 +130,12 @@
                                     <a href="{{ route('admin.users.edit', $user) }}" class="btn btn-sm btn-outline-primary">View</a>
                                     <a href="{{ route('admin.users.edit', $user) }}" class="btn btn-sm btn-outline-secondary">Edit</a>
                                     <a href="{{ route('admin.users.edit', $user) }}#reset-password" class="btn btn-sm btn-outline-warning">Reset Password</a>
+                                    @if ($user->canActAs('lecturer') && ! $user->canActAs('admin'))
+                                        <form method="POST" action="{{ route('admin.users.promote-admin', $user) }}" class="d-inline" onsubmit="return confirm('Promote this lecturer to admin? Lecturer Mode will be retained.')">
+                                            @csrf
+                                            <button type="submit" class="btn btn-sm btn-outline-success">Promote Admin</button>
+                                        </form>
+                                    @endif
                                     <form method="POST" action="{{ route('admin.users.destroy', array_merge(['user' => $user->id], request()->only(['search', 'per_page', 'page']))) }}" class="d-inline" onsubmit="return confirm('Delete this user? This cannot be undone.')">
                                         @csrf
                                         @method('DELETE')

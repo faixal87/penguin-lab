@@ -2,15 +2,14 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\LoginLog;
 use App\Models\FeedbackAnswer;
 use App\Models\FeedbackQuestion;
 use App\Models\SchoolClass;
 use App\Models\Semester;
-use App\Models\StudentAnswer;
 use App\Models\User;
 use App\Services\BadgeService;
 use App\Services\CourseFeedbackService;
+use App\Services\ScoreService;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -18,7 +17,8 @@ class DashboardController extends Controller
 {
     public function __construct(
         private BadgeService $badgeService,
-        private CourseFeedbackService $feedbackControls
+        private CourseFeedbackService $feedbackControls,
+        private ScoreService $scores
     )
     {
     }
@@ -28,38 +28,10 @@ class DashboardController extends Controller
         $user = $request->user();
 
         if ($user->isAdmin()) {
-            $loginLogPerPage = (int) $request->query('login_log_per_page', 10);
-            $loginLogPerPage = in_array($loginLogPerPage, [10, 20, 50], true) ? $loginLogPerPage : 10;
-            $loginLogSearch = trim((string) $request->query('login_log_search', ''));
-
             return view('admin.dashboard', [
                 'users' => User::latest()->get(),
                 'classes' => SchoolClass::with('lecturer', 'students')->latest('created_at')->get(),
-                'loginLogs' => LoginLog::query()
-                    ->with('user')
-                    ->when($loginLogSearch !== '', function ($query) use ($loginLogSearch) {
-                        $search = strtolower($loginLogSearch);
-
-                        $query->where(function ($inner) use ($search) {
-                            $inner->whereRaw('LOWER(ip_address) LIKE ?', ["%{$search}%"])
-                                ->orWhereRaw('LOWER(browser) LIKE ?', ["%{$search}%"])
-                                ->orWhereRaw('LOWER(user_agent) LIKE ?', ["%{$search}%"])
-                                ->orWhereHas('user', function ($userQuery) use ($search) {
-                                    $userQuery->whereRaw('LOWER(name) LIKE ?', ["%{$search}%"])
-                                        ->orWhereRaw('LOWER(email) LIKE ?', ["%{$search}%"]);
-                                });
-                        });
-                    })
-                    ->latest('logged_in_at')
-                    ->paginate($loginLogPerPage, ['*'], 'login_logs_page')
-                    ->withQueryString(),
-                'loginLogSearch' => $loginLogSearch,
-                'loginLogPerPage' => $loginLogPerPage,
-                'examResults' => StudentAnswer::with('user')
-                    ->selectRaw('user_id, exam_session_id, set_no, SUM(score_awarded) as total_score, COUNT(*) as answered_count')
-                    ->groupBy('user_id', 'exam_session_id', 'set_no')
-                    ->orderByDesc('total_score')
-                    ->get(),
+                'examResults' => $this->scores->groupedExamResults(),
                 'badgeService' => $this->badgeService,
                 'currentSemester' => Semester::current(),
             ]);
@@ -80,13 +52,14 @@ class DashboardController extends Controller
                 ->flatMap(fn ($class) => $class->students->pluck('id'))
                 ->unique()
                 ->values();
-            $leaderboard = User::whereIn('id', $studentIds)
+            $leaderboardQuery = User::whereIn('users.id', $studentIds)
                 ->with('enrolledClasses.semester')
-                ->withSum('studentAnswers as total_score', 'score_awarded')
-                ->get()
-                ->sortByDesc(fn (User $student) => (float) ($student->total_score ?? 0))
-                ->take(10)
-                ->values();
+                ->where('role', 'student');
+            $leaderboard = $this->scores->withTotalScore($leaderboardQuery)
+                ->orderByDesc('total_score')
+                ->orderBy('users.name')
+                ->limit(10)
+                ->get();
 
             return view('lecturer.dashboard', [
                 'classes' => $classes,
@@ -97,7 +70,8 @@ class DashboardController extends Controller
         }
 
         $currentSemester = Semester::current();
-        $totalScore = $user->studentAnswers()->sum('score_awarded');
+        $totalScore = $this->scores->totalForUser($user);
+        $latestAttempt = $this->scores->latestAttemptFor($user);
         $latestClass = $user->enrolledClasses()
             ->with('questionSets.setQuestions', 'semester')
             ->when($currentSemester, fn ($query) => $query->where('semester_id', $currentSemester->id))
@@ -133,9 +107,7 @@ class DashboardController extends Controller
         $semesterLeaderboard = collect();
 
         if ($latestClass) {
-            $classStudents = $latestClass->students()
-                ->withSum('studentAnswers as total_score', 'score_awarded')
-                ->get()
+            $classStudents = $this->scores->attachTotalsToUsers($latestClass->students()->get())
                 ->sortByDesc(fn (User $student) => (float) ($student->total_score ?? 0))
                 ->values();
 
@@ -146,18 +118,19 @@ class DashboardController extends Controller
         }
 
         if ($currentSemester) {
-            $semesterLeaderboard = User::where('role', 'student')
+            $semesterLeaderboardQuery = User::where('role', 'student')
                 ->whereHas('enrolledClasses', fn ($query) => $query->where('semester_id', $currentSemester->id))
-                ->with('enrolledClasses.semester')
-                ->withSum('studentAnswers as total_score', 'score_awarded')
-                ->get()
-                ->sortByDesc(fn (User $student) => (float) ($student->total_score ?? 0))
-                ->take(5)
-                ->values();
+                ->with('enrolledClasses.semester');
+            $semesterLeaderboard = $this->scores->withTotalScore($semesterLeaderboardQuery)
+                ->orderByDesc('total_score')
+                ->orderBy('users.name')
+                ->limit(5)
+                ->get();
         }
 
         return view('dashboard', [
             'totalScore' => $totalScore,
+            'latestAttempt' => $latestAttempt,
             'answeredCount' => $user->studentAnswers()->count(),
             'badge' => $this->badgeService->forScore($totalScore),
             'latestClass' => $latestClass,

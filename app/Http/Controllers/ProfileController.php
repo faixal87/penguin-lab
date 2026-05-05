@@ -37,12 +37,10 @@ class ProfileController extends Controller
             'email' => ['required', 'email', 'max:255', Rule::unique('users')->ignore($user->id)],
             'profile_photo' => ['nullable', 'image', 'max:2048'],
             'phone_no' => ['nullable', 'string', 'max:50'],
+            'date_of_birth' => ['nullable', 'date', 'before_or_equal:today'],
             'program' => ['nullable', 'string', 'max:255'],
-            'semester' => ['nullable', 'string', 'max:50'],
-            'class_name' => ['nullable', 'string', 'max:255'],
             'matric_no' => ['nullable', 'string', 'max:255', Rule::unique('users')->ignore($user->id)],
             'registration_no' => ['nullable', 'string', 'max:255'],
-            'staff_no' => ['nullable', 'string', 'max:255'],
             'department' => ['nullable', 'string', 'max:255'],
             'default_avatar' => ['nullable', Rule::in(array_keys(User::defaultAvatars()))],
         ]);

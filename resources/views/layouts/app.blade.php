@@ -8,6 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;800&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
     <link href="{{ asset('css/shellfix-cyberpunk.css') }}" rel="stylesheet">
     <meta name="csrf-token" content="{{ csrf_token() }}">
 </head>
@@ -41,8 +42,35 @@
                             @endif
                         </button>
                         <button class="btn btn-sm btn-neon-outline" type="button" data-notification-mute aria-label="Toggle notification sound">Sound On</button>
-                        <img src="{{ auth()->user()->profilePhotoUrl() }}" alt="{{ auth()->user()->name }}" class="rounded-circle shellfix-avatar">
-                        <span class="navbar-text">{{ auth()->user()->name }} <span class="role-chip">{{ auth()->user()->role }}</span></span>
+                        <div class="dropdown">
+                            <button class="btn p-0 border-0 bg-transparent" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Open profile menu">
+                                <img src="{{ auth()->user()->profilePhotoUrl() }}" alt="{{ auth()->user()->name }}" class="rounded-circle shellfix-avatar">
+                            </button>
+                            <div class="dropdown-menu dropdown-menu-end shellfix-profile-menu">
+                                <div class="px-3 py-2">
+                                    <div class="fw-semibold">{{ auth()->user()->name }}</div>
+                                    <div class="text-secondary small">{{ ucfirst(auth()->user()->activeRole()) }} Mode</div>
+                                </div>
+                                <div class="dropdown-divider"></div>
+                                @if (auth()->user()->canActAs('admin'))
+                                    <form method="POST" action="{{ route('mode.switch') }}">
+                                        @csrf
+                                        <input type="hidden" name="mode" value="admin">
+                                        <button class="dropdown-item" type="submit" @disabled(auth()->user()->activeRole() === 'admin')>Switch to Admin</button>
+                                    </form>
+                                @endif
+                                @if (auth()->user()->canActAs('lecturer'))
+                                    <form method="POST" action="{{ route('mode.switch') }}">
+                                        @csrf
+                                        <input type="hidden" name="mode" value="lecturer">
+                                        <button class="dropdown-item" type="submit" @disabled(auth()->user()->activeRole() === 'lecturer')>Switch to Lecturer</button>
+                                    </form>
+                                @endif
+                                <div class="dropdown-divider"></div>
+                                <a class="dropdown-item" href="{{ route('profile') }}">Profile Settings</a>
+                            </div>
+                        </div>
+                        <span class="navbar-text">{{ auth()->user()->name }} <span class="role-chip">{{ ucfirst(auth()->user()->activeRole()) }} Mode</span></span>
                         <form method="POST" action="{{ route('logout') }}" class="mb-0">
                             @csrf
                             <button type="submit" class="btn btn-sm btn-neon-outline">Logout</button>
@@ -61,85 +89,92 @@
                     <span class="sidebar-logo">&#128039;</span>
                     <span class="sidebar-title">Control Deck</span>
                 </div>
-                <nav class="nav flex-column gap-1">
-                    <a class="nav-link {{ request()->routeIs('dashboard') ? 'active' : '' }}" href="{{ route('dashboard') }}"><span>&#8962;</span><em>Dashboard</em></a>
+                <nav class="nav flex-column sidebar-menu" id="shellfixSidebarMenu">
+                    <a class="nav-link sidebar-main-link {{ request()->routeIs('dashboard') ? 'active' : '' }}" href="{{ route('dashboard') }}"><i class="bi bi-speedometer2 sidebar-icon" aria-hidden="true"></i><em>Dashboard</em></a>
                     @auth
                         @php
                             $user = auth()->user();
                             $canAccessTerminal = $user->isStudent() && ((bool) $user->terminal_enabled || $user->enrolledClasses()->where('terminal_enabled', true)->exists());
+                            $learningMenuActive = request()->routeIs('scenarios*') || request()->routeIs('terminal.index') || request()->routeIs('results');
+                            $studentFeedbackMenuActive = request()->routeIs('feedback.form');
+                            $classMenuActive = request()->routeIs('admin.classes*') || request()->routeIs('lecturer.classes*') || request()->routeIs('scoreboard') || (request()->routeIs('admin.users.index') && request('role') === 'student');
+                            $questionMenuActive = request()->routeIs('question-sets*') || request()->routeIs('admin.question-bank*') || request()->routeIs('admin.question-sets*') || request()->routeIs('admin.question-set-assignment') || request()->routeIs('lecturer.question-bank*') || request()->routeIs('lecturer.question-sets*') || request()->routeIs('lecturer.question-set-assignment');
+                            $researchMenuActive = request()->routeIs('feedback.control') || request()->routeIs('feedback.summary') || request()->routeIs('feedback.raw');
+                            $systemMenuActive = request()->routeIs('admin.semesters*') || request()->routeIs('admin.activity-logs*') || request()->routeIs('admin.health*') || request()->routeIs('notifications.manage') || request()->routeIs('admin.terminal.settings') || request()->routeIs('admin.feedback*') || (request()->routeIs('admin.users*') && ! (request()->routeIs('admin.users.index') && request('role') === 'student'));
                         @endphp
 
                         @if ($user->isStudent())
-                            <button class="nav-link text-start" data-bs-toggle="collapse" data-bs-target="#menuLearning" type="button"><span>&#9000;</span><em>Learning</em></button>
-                            <div class="collapse show" id="menuLearning">
-                                <a class="nav-link {{ request()->routeIs('scenarios*') ? 'active' : '' }}" href="{{ route('scenarios') }}"><span>&#9000;</span><em>Scenarios / My Sets</em></a>
+                            <button class="nav-link sidebar-main-link text-start {{ $learningMenuActive ? 'active' : '' }}" data-bs-toggle="collapse" data-bs-target="#menuLearning" type="button" aria-expanded="{{ $learningMenuActive ? 'true' : 'false' }}" aria-controls="menuLearning"><i class="bi bi-terminal sidebar-icon" aria-hidden="true"></i><em>Learning</em></button>
+                            <div class="collapse sidebar-submenu {{ $learningMenuActive ? 'show' : '' }}" id="menuLearning" data-bs-parent="#shellfixSidebarMenu">
+                                <a class="nav-link sidebar-submenu-link {{ request()->routeIs('scenarios*') ? 'active' : '' }}" href="{{ route('scenarios') }}"><em>Scenarios / My Sets</em></a>
                                 @if ($canAccessTerminal)
-                                    <a class="nav-link {{ request()->routeIs('terminal.index') ? 'active' : '' }}" href="{{ route('terminal.index') }}"><span>&gt;_</span><em>Terminal</em></a>
+                                    <a class="nav-link sidebar-submenu-link {{ request()->routeIs('terminal.index') ? 'active' : '' }}" href="{{ route('terminal.index') }}"><em>Terminal</em></a>
                                 @endif
-                                <a class="nav-link {{ request()->routeIs('results') ? 'active' : '' }}" href="{{ route('results') }}"><span>&#9671;</span><em>Results</em></a>
+                                <a class="nav-link sidebar-submenu-link {{ request()->routeIs('results') ? 'active' : '' }}" href="{{ route('results') }}"><em>Results</em></a>
                             </div>
 
                             @if ($layoutShowFeedbackMenu ?? false)
-                                <button class="nav-link text-start" data-bs-toggle="collapse" data-bs-target="#menuFeedback" type="button"><span>&#10022;</span><em>Feedback & Research</em></button>
-                                <div class="collapse show" id="menuFeedback">
-                                    <a class="nav-link {{ request()->routeIs('feedback.form') ? 'active' : '' }}" href="{{ route('feedback.form') }}"><span>&#10022;</span><em>Course Feedback</em></a>
+                                <button class="nav-link sidebar-main-link text-start {{ $studentFeedbackMenuActive ? 'active' : '' }}" data-bs-toggle="collapse" data-bs-target="#menuFeedback" type="button" aria-expanded="{{ $studentFeedbackMenuActive ? 'true' : 'false' }}" aria-controls="menuFeedback"><i class="bi bi-clipboard-data sidebar-icon" aria-hidden="true"></i><em>Feedback & Research</em></button>
+                                <div class="collapse sidebar-submenu {{ $studentFeedbackMenuActive ? 'show' : '' }}" id="menuFeedback" data-bs-parent="#shellfixSidebarMenu">
+                                    <a class="nav-link sidebar-submenu-link {{ request()->routeIs('feedback.form') ? 'active' : '' }}" href="{{ route('feedback.form') }}"><em>Course Feedback</em></a>
                                 </div>
                             @endif
                         @endif
 
                         @if ($user->isAdmin() || $user->isLecturer())
-                            <button class="nav-link text-start" data-bs-toggle="collapse" data-bs-target="#menuClass" type="button"><span>&#9638;</span><em>Class Management</em></button>
-                            <div class="collapse show" id="menuClass">
+                            <button class="nav-link sidebar-main-link text-start {{ $classMenuActive ? 'active' : '' }}" data-bs-toggle="collapse" data-bs-target="#menuClass" type="button" aria-expanded="{{ $classMenuActive ? 'true' : 'false' }}" aria-controls="menuClass"><i class="bi bi-people sidebar-icon" aria-hidden="true"></i><em>Class Management</em></button>
+                            <div class="collapse sidebar-submenu {{ $classMenuActive ? 'show' : '' }}" id="menuClass" data-bs-parent="#shellfixSidebarMenu">
                                 @if ($user->isAdmin())
-                                    <a class="nav-link {{ request()->routeIs('admin.classes*') ? 'active' : '' }}" href="{{ route('admin.classes.index') }}"><span>&#9638;</span><em>Classes</em></a>
-                                    <a class="nav-link {{ request()->routeIs('admin.users*') ? 'active' : '' }}" href="{{ route('admin.users.index', ['role' => 'student']) }}"><span>&#9678;</span><em>Students</em></a>
+                                    <a class="nav-link sidebar-submenu-link {{ request()->routeIs('admin.classes*') ? 'active' : '' }}" href="{{ route('admin.classes.index') }}"><em>Classes</em></a>
+                                    <a class="nav-link sidebar-submenu-link {{ request()->routeIs('admin.users.index') && request('role') === 'student' ? 'active' : '' }}" href="{{ route('admin.users.index', ['role' => 'student']) }}"><em>Students</em></a>
                                 @else
-                                    <a class="nav-link {{ request()->routeIs('lecturer.classes*') ? 'active' : '' }}" href="{{ route('dashboard') }}"><span>&#9638;</span><em>Classes</em></a>
+                                    <a class="nav-link sidebar-submenu-link {{ request()->routeIs('lecturer.classes*') ? 'active' : '' }}" href="{{ route('dashboard') }}"><em>Classes</em></a>
                                 @endif
-                                <a class="nav-link {{ request()->routeIs('scoreboard') ? 'active' : '' }}" href="{{ route('scoreboard') }}"><span>&#9636;</span><em>Scoreboard</em></a>
+                                <a class="nav-link sidebar-submenu-link {{ request()->routeIs('scoreboard') ? 'active' : '' }}" href="{{ route('scoreboard') }}"><em>Scoreboard</em></a>
                             </div>
 
-                            <button class="nav-link text-start" data-bs-toggle="collapse" data-bs-target="#menuQuestions" type="button"><span>?</span><em>Question Management</em></button>
-                            <div class="collapse show" id="menuQuestions">
-                                <a class="nav-link {{ request()->routeIs('question-sets*') ? 'active' : '' }}" href="{{ route('question-sets.index') }}"><span>?</span><em>Question Set Viewer</em></a>
+                            <button class="nav-link sidebar-main-link text-start {{ $questionMenuActive ? 'active' : '' }}" data-bs-toggle="collapse" data-bs-target="#menuQuestions" type="button" aria-expanded="{{ $questionMenuActive ? 'true' : 'false' }}" aria-controls="menuQuestions"><i class="bi bi-list-check sidebar-icon" aria-hidden="true"></i><em>Question Management</em></button>
+                            <div class="collapse sidebar-submenu {{ $questionMenuActive ? 'show' : '' }}" id="menuQuestions" data-bs-parent="#shellfixSidebarMenu">
+                                <a class="nav-link sidebar-submenu-link {{ request()->routeIs('question-sets*') ? 'active' : '' }}" href="{{ route('question-sets.index') }}"><em>Question Set Viewer</em></a>
                                 @if ($user->isAdmin())
-                                    <a class="nav-link {{ request()->routeIs('admin.question-bank*') ? 'active' : '' }}" href="{{ route('admin.question-bank.index') }}"><span>&#9000;</span><em>Question Bank</em></a>
-                                    <a class="nav-link {{ request()->routeIs('admin.question-sets*') ? 'active' : '' }}" href="{{ route('admin.question-sets.index') }}"><span>&#9636;</span><em>Question Sets</em></a>
-                                    <a class="nav-link {{ request()->routeIs('admin.question-set-assignment') ? 'active' : '' }}" href="{{ route('admin.question-set-assignment') }}"><span>&#9638;</span><em>Assign Sets</em></a>
+                                    <a class="nav-link sidebar-submenu-link {{ request()->routeIs('admin.question-bank*') ? 'active' : '' }}" href="{{ route('admin.question-bank.index') }}"><em>Question Bank</em></a>
+                                    <a class="nav-link sidebar-submenu-link {{ request()->routeIs('admin.question-sets*') ? 'active' : '' }}" href="{{ route('admin.question-sets.index') }}"><em>Question Sets</em></a>
+                                    <a class="nav-link sidebar-submenu-link {{ request()->routeIs('admin.question-set-assignment') ? 'active' : '' }}" href="{{ route('admin.question-set-assignment') }}"><em>Assign Sets</em></a>
                                 @else
-                                    <a class="nav-link {{ request()->routeIs('lecturer.question-bank*') ? 'active' : '' }}" href="{{ route('lecturer.question-bank.index') }}"><span>&#9000;</span><em>Question Bank</em></a>
-                                    <a class="nav-link {{ request()->routeIs('lecturer.question-sets*') ? 'active' : '' }}" href="{{ route('lecturer.question-sets.index') }}"><span>&#9636;</span><em>Question Sets</em></a>
-                                    <a class="nav-link {{ request()->routeIs('lecturer.question-set-assignment') ? 'active' : '' }}" href="{{ route('lecturer.question-set-assignment') }}"><span>&#9638;</span><em>Assign Sets</em></a>
+                                    <a class="nav-link sidebar-submenu-link {{ request()->routeIs('lecturer.question-bank*') ? 'active' : '' }}" href="{{ route('lecturer.question-bank.index') }}"><em>Question Bank</em></a>
+                                    <a class="nav-link sidebar-submenu-link {{ request()->routeIs('lecturer.question-sets*') ? 'active' : '' }}" href="{{ route('lecturer.question-sets.index') }}"><em>Question Sets</em></a>
+                                    <a class="nav-link sidebar-submenu-link {{ request()->routeIs('lecturer.question-set-assignment') ? 'active' : '' }}" href="{{ route('lecturer.question-set-assignment') }}"><em>Assign Sets</em></a>
                                 @endif
                             </div>
 
-                            <button class="nav-link text-start" data-bs-toggle="collapse" data-bs-target="#menuResearch" type="button"><span>&#10022;</span><em>Feedback & Research</em></button>
-                            <div class="collapse show" id="menuResearch">
-                                <a class="nav-link {{ request()->routeIs('feedback.control') ? 'active' : '' }}" href="{{ route('feedback.control') }}"><span>&#9881;</span><em>Course Feedback</em></a>
-                                <a class="nav-link {{ request()->routeIs('feedback.summary') ? 'active' : '' }}" href="{{ route('feedback.summary') }}"><span>&#10022;</span><em>Feedback Dashboard</em></a>
-                                <a class="nav-link {{ request()->routeIs('feedback.raw') ? 'active' : '' }}" href="{{ route('feedback.raw') }}"><span>&#8801;</span><em>Raw Feedback Data</em></a>
+                            <button class="nav-link sidebar-main-link text-start {{ $researchMenuActive ? 'active' : '' }}" data-bs-toggle="collapse" data-bs-target="#menuResearch" type="button" aria-expanded="{{ $researchMenuActive ? 'true' : 'false' }}" aria-controls="menuResearch"><i class="bi bi-bar-chart-line sidebar-icon" aria-hidden="true"></i><em>Feedback & Research</em></button>
+                            <div class="collapse sidebar-submenu {{ $researchMenuActive ? 'show' : '' }}" id="menuResearch" data-bs-parent="#shellfixSidebarMenu">
+                                <a class="nav-link sidebar-submenu-link {{ request()->routeIs('feedback.control') ? 'active' : '' }}" href="{{ route('feedback.control') }}"><em>Course Feedback</em></a>
+                                <a class="nav-link sidebar-submenu-link {{ request()->routeIs('feedback.summary') ? 'active' : '' }}" href="{{ route('feedback.summary') }}"><em>Feedback Dashboard</em></a>
+                                <a class="nav-link sidebar-submenu-link {{ request()->routeIs('feedback.raw') ? 'active' : '' }}" href="{{ route('feedback.raw') }}"><em>Raw Feedback Data</em></a>
                             </div>
                         @endif
 
                         @if ($user->isAdmin())
-                            <button class="nav-link text-start" data-bs-toggle="collapse" data-bs-target="#menuSystem" type="button"><span>&#9881;</span><em>System Administration</em></button>
-                            <div class="collapse show" id="menuSystem">
-                                <a class="nav-link {{ request()->routeIs('admin.semesters*') ? 'active' : '' }}" href="{{ route('admin.semesters.index') }}"><span>&#9673;</span><em>Semester Settings</em></a>
-                                <a class="nav-link {{ request()->routeIs('admin.users*') ? 'active' : '' }}" href="{{ route('admin.users.index') }}"><span>&#9678;</span><em>Manage Users</em></a>
-                                <a class="nav-link" href="{{ route('dashboard') }}#login-logs"><span>&#9673;</span><em>Login Security Logs</em></a>
-                                <a class="nav-link {{ request()->routeIs('notifications.manage') ? 'active' : '' }}" href="{{ route('notifications.manage') }}"><span>&#128276;</span><em>Notifications</em></a>
-                                <a class="nav-link {{ request()->routeIs('admin.terminal.settings') ? 'active' : '' }}" href="{{ route('admin.terminal.settings') }}"><span>&gt;_</span><em>Terminal Management</em></a>
-                                <a class="nav-link {{ request()->routeIs('admin.feedback*') ? 'active' : '' }}" href="{{ route('admin.feedback.index') }}"><span>&#9676;</span><em>Feedback Questions</em></a>
+                            <button class="nav-link sidebar-main-link text-start {{ $systemMenuActive ? 'active' : '' }}" data-bs-toggle="collapse" data-bs-target="#menuSystem" type="button" aria-expanded="{{ $systemMenuActive ? 'true' : 'false' }}" aria-controls="menuSystem"><i class="bi bi-shield-lock sidebar-icon" aria-hidden="true"></i><em>System Administration</em></button>
+                            <div class="collapse sidebar-submenu {{ $systemMenuActive ? 'show' : '' }}" id="menuSystem" data-bs-parent="#shellfixSidebarMenu">
+                                <a class="nav-link sidebar-submenu-link {{ request()->routeIs('admin.semesters*') ? 'active' : '' }}" href="{{ route('admin.semesters.index') }}"><em>Semester Settings</em></a>
+                                <a class="nav-link sidebar-submenu-link {{ request()->routeIs('admin.health*') ? 'active' : '' }}" href="{{ route('admin.health.index') }}"><em>System Health</em></a>
+                                <a class="nav-link sidebar-submenu-link {{ request()->routeIs('admin.users*') && ! (request()->routeIs('admin.users.index') && request('role') === 'student') ? 'active' : '' }}" href="{{ route('admin.users.index') }}"><em>Manage Users</em></a>
+                                <a class="nav-link sidebar-submenu-link {{ request()->routeIs('admin.activity-logs*') ? 'active' : '' }}" href="{{ route('admin.activity-logs.index') }}"><em>Activity Logs</em></a>
+                                <a class="nav-link sidebar-submenu-link {{ request()->routeIs('notifications.manage') ? 'active' : '' }}" href="{{ route('notifications.manage') }}"><em>Notifications</em></a>
+                                <a class="nav-link sidebar-submenu-link {{ request()->routeIs('admin.terminal.settings') ? 'active' : '' }}" href="{{ route('admin.terminal.settings') }}"><em>Terminal Management</em></a>
+                                <a class="nav-link sidebar-submenu-link {{ request()->routeIs('admin.feedback*') ? 'active' : '' }}" href="{{ route('admin.feedback.index') }}"><em>Feedback Questions</em></a>
                             </div>
                         @elseif ($user->isLecturer())
-                            <a class="nav-link {{ request()->routeIs('notifications.manage') ? 'active' : '' }}" href="{{ route('notifications.manage') }}"><span>&#128276;</span><em>Notifications</em></a>
-                            <a class="nav-link {{ request()->routeIs('lecturer.terminal.settings') ? 'active' : '' }}" href="{{ route('lecturer.terminal.settings') }}"><span>&gt;_</span><em>Terminal Settings</em></a>
+                            <a class="nav-link sidebar-main-link {{ request()->routeIs('notifications.manage') ? 'active' : '' }}" href="{{ route('notifications.manage') }}"><i class="bi bi-bell sidebar-icon" aria-hidden="true"></i><em>Notifications</em></a>
+                            <a class="nav-link sidebar-main-link {{ request()->routeIs('lecturer.terminal.settings') ? 'active' : '' }}" href="{{ route('lecturer.terminal.settings') }}"><i class="bi bi-terminal sidebar-icon" aria-hidden="true"></i><em>Terminal Settings</em></a>
                         @endif
 
-                        <a class="nav-link {{ request()->routeIs('notifications.index') ? 'active' : '' }}" href="{{ route('notifications.index') }}"><span>&#128276;</span><em>Notification Center</em></a>
-                        <a class="nav-link {{ request()->routeIs('profile') ? 'active' : '' }}" href="{{ route('profile') }}"><span>&#9787;</span><em>Profile</em></a>
+                        <a class="nav-link sidebar-main-link {{ request()->routeIs('notifications.index') ? 'active' : '' }}" href="{{ route('notifications.index') }}"><i class="bi bi-bell sidebar-icon" aria-hidden="true"></i><em>Notification Center</em></a>
+                        <a class="nav-link sidebar-main-link {{ request()->routeIs('profile') ? 'active' : '' }}" href="{{ route('profile') }}"><i class="bi bi-person-circle sidebar-icon" aria-hidden="true"></i><em>Profile</em></a>
                     @else
-                        <a class="nav-link {{ request()->routeIs('login') ? 'active' : '' }}" href="{{ route('login') }}"><span>&#8618;</span><em>Login</em></a>
+                        <a class="nav-link sidebar-main-link {{ request()->routeIs('login') ? 'active' : '' }}" href="{{ route('login') }}"><i class="bi bi-box-arrow-in-right sidebar-icon" aria-hidden="true"></i><em>Login</em></a>
                     @endauth
                 </nav>
             </aside>
