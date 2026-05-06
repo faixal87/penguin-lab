@@ -39,15 +39,17 @@
 
             <div class="accordion shellfix-accordion" id="activityLogAccordion">
                 @forelse ($groupedLogs as $userName => $logs)
-                    @php($accordionId = 'activityUser' . $loop->index)
-                    @php($firstLog = $logs->first())
+                    @php
+                        $accordionId = 'activityUser' . $loop->index;
+                        $firstLog = $logs->first();
+                    @endphp
                     <div class="accordion-item border-0 mb-3">
                         <h3 class="accordion-header" id="{{ $accordionId }}Heading">
                             <button class="accordion-button {{ $loop->first ? '' : 'collapsed' }}" type="button" data-bs-toggle="collapse" data-bs-target="#{{ $accordionId }}" aria-expanded="{{ $loop->first ? 'true' : 'false' }}" aria-controls="{{ $accordionId }}">
-                                <span class="fw-semibold">{{ $userName }}</span>
-                                <span class="badge text-bg-info ms-3">{{ $logs->count() }} activities</span>
+                                <span class="activity-log-user">{{ $userName }}</span>
+                                <span class="badge activity-log-count ms-3">{{ $logs->count() }} activities</span>
                                 @if ($firstLog?->user?->email)
-                                    <span class="text-secondary small ms-3">{{ $firstLog->user->email }}</span>
+                                    <span class="activity-log-email ms-3">{{ $firstLog->user->email }}</span>
                                 @endif
                             </button>
                         </h3>
@@ -67,7 +69,7 @@
                                         <tbody>
                                             @foreach ($logs as $log)
                                                 <tr>
-                                                    <td><span class="badge text-bg-secondary">{{ ucfirst($log->activity ?? 'login') }}</span></td>
+                                                    <td><span class="badge activity-log-badge">{{ ucfirst($log->activity ?? 'login') }}</span></td>
                                                     <td>{{ $log->ip_address ?? '-' }}</td>
                                                     <td>{{ $log->browser ?? '-' }}</td>
                                                     <td>{{ $log->platform ?? '-' }}</td>

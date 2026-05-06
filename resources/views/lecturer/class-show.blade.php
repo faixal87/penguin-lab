@@ -13,7 +13,9 @@
     @endif
 
     @if (session('import_summary'))
-        @php($summary = session('import_summary'))
+        @php
+            $summary = session('import_summary');
+        @endphp
         <div class="card border-0 shadow-sm mb-4">
             <div class="card-body">
                 <h2 class="h5">Import Summary</h2>
@@ -134,77 +136,79 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @forelse ($class->students as $student)
-                            @php
-                                $containerStatus = $student->container_status ?: 'not_started';
-                                $isInitializing = $containerStatus === 'initializing';
-                            @endphp
-                            <tr>
-                                <td>{{ $student->name }}</td>
-                                <td>{{ $student->matric_no }}</td>
-                                <td>{{ $student->email }}</td>
-                                <td>{{ $student->status }}</td>
-                                <td>{{ $student->linux_username ?: '-' }}</td>
-                                <td>{{ $student->linux_username ?: '-' }}</td>
-                                <td>
-                                    <span class="badge {{ ($student->terminal_enabled || $class->terminal_enabled) ? 'text-bg-success' : 'text-bg-secondary' }}">
-                                        {{ ($student->terminal_enabled || $class->terminal_enabled) ? 'Enabled' : 'Disabled' }}
-                                    </span>
-                                </td>
-                                <td>
-                                    <span class="badge {{ $isInitializing ? 'text-bg-warning' : ($containerStatus === 'running' ? 'text-bg-success' : ($containerStatus === 'error' ? 'text-bg-danger' : 'text-bg-secondary')) }}">
-                                        {{ str_replace('_', ' ', $containerStatus) }}
-                                    </span>
-                                </td>
-                                <td class="text-end">
-                                    <div class="d-flex gap-2 justify-content-end flex-wrap">
-                                        <form method="POST" action="{{ auth()->user()->isAdmin() ? route('admin.classes.students.status', [$class, $student]) : route('lecturer.classes.students.status', [$class, $student]) }}">
-                                            @csrf @method('PUT')
-                                            <button class="btn btn-sm btn-outline-warning">{{ $student->status === 'disabled' ? 'Enable' : 'Disable' }}</button>
-                                        </form>
-                                        @if (auth()->user()->isAdmin())
-                                            <a href="{{ route('admin.users.edit', $student) }}" class="btn btn-sm btn-outline-primary">Edit Student</a>
-                                            <form method="POST" action="{{ route('admin.users.destroy', $student) }}" onsubmit="return confirm('Delete this student account and related records?')">
-                                                @csrf
-                                                @method('DELETE')
-                                                <button class="btn btn-sm btn-outline-danger">Delete Student</button>
-                                            </form>
-                                        @endif
-                                        <form method="POST" action="{{ auth()->user()->isAdmin() ? route('admin.classes.students.remove', [$class, $student]) : route('lecturer.classes.students.remove', [$class, $student]) }}" onsubmit="return confirm('Remove this student from class?')">
-                                            @csrf @method('DELETE')
-                                            <button class="btn btn-sm btn-outline-danger">Remove</button>
-                                        </form>
-                                        <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="collapse" data-bs-target="#resetStudent{{ $student->id }}">Reset Password</button>
-                                        @if ($class->terminal_enabled)
-                                            <form method="POST" action="{{ route('lecturer.terminal.run', $student) }}" onsubmit="this.querySelector('button[type=submit]').disabled = true;">
-                                                @csrf
-                                                <input type="hidden" name="command_type" value="start">
-                                                <button type="submit" class="btn btn-sm btn-primary" {{ $isInitializing ? 'disabled' : '' }} onclick="return confirm('Start this student terminal?')">
-                                                    {{ $isInitializing ? 'Initializing...' : 'Start' }}
-                                                </button>
-                                            </form>
-                                            <form method="POST" action="{{ route('lecturer.terminal.run', $student) }}">
-                                                @csrf
-                                                <input type="hidden" name="command_type" value="stop">
-                                                <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Stop this student terminal?')">Stop</button>
-                                            </form>
-                                        @endif
-                                    </div>
-                                    <div class="collapse mt-2" id="resetStudent{{ $student->id }}">
-                                        <form method="POST" action="{{ auth()->user()->isAdmin() ? route('admin.classes.students.password', [$class, $student]) : route('lecturer.classes.students.password', [$class, $student]) }}" class="d-flex gap-2 justify-content-end">
-                                            @csrf @method('PUT')
-                                            <input type="password" name="password" class="form-control form-control-sm" placeholder="New password" required>
-                                            <input type="password" name="password_confirmation" class="form-control form-control-sm" placeholder="Confirm" required>
-                                            <button class="btn btn-sm btn-primary">Save</button>
-                                        </form>
-                                    </div>
-                                </td>
-                            </tr>
-                        @empty
+                        @if ($class->students->isEmpty())
                             <tr>
                                 <td colspan="9" class="text-center text-secondary py-4">No students enrolled yet.</td>
                             </tr>
-                        @endforelse
+                        @else
+                            @foreach ($class->students as $student)
+                                @php
+                                    $containerStatus = $student->container_status ?: 'not_started';
+                                    $isInitializing = $containerStatus === 'initializing';
+                                @endphp
+                                <tr>
+                                    <td>{{ $student->name }}</td>
+                                    <td>{{ $student->matric_no }}</td>
+                                    <td>{{ $student->email }}</td>
+                                    <td>{{ $student->status }}</td>
+                                    <td>{{ $student->linux_username ?: '-' }}</td>
+                                    <td>{{ $student->linux_username ?: '-' }}</td>
+                                    <td>
+                                        <span class="badge {{ ($student->terminal_enabled || $class->terminal_enabled) ? 'text-bg-success' : 'text-bg-secondary' }}">
+                                            {{ ($student->terminal_enabled || $class->terminal_enabled) ? 'Enabled' : 'Disabled' }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="badge {{ $isInitializing ? 'text-bg-warning' : ($containerStatus === 'running' ? 'text-bg-success' : ($containerStatus === 'error' ? 'text-bg-danger' : 'text-bg-secondary')) }}">
+                                            {{ str_replace('_', ' ', $containerStatus) }}
+                                        </span>
+                                    </td>
+                                    <td class="text-end">
+                                        <div class="d-flex gap-2 justify-content-end flex-wrap">
+                                            <form method="POST" action="{{ auth()->user()->isAdmin() ? route('admin.classes.students.status', [$class, $student]) : route('lecturer.classes.students.status', [$class, $student]) }}">
+                                                @csrf @method('PUT')
+                                                <button class="btn btn-sm btn-outline-warning">{{ $student->status === 'disabled' ? 'Enable' : 'Disable' }}</button>
+                                            </form>
+                                            @if (auth()->user()->isAdmin())
+                                                <a href="{{ route('admin.users.edit', $student) }}" class="btn btn-sm btn-outline-primary">Edit Student</a>
+                                                <form method="POST" action="{{ route('admin.users.destroy', $student) }}" onsubmit="return confirm('Delete this student account and related records?')">
+                                                    @csrf
+                                                    @method('DELETE')
+                                                    <button class="btn btn-sm btn-outline-danger">Delete Student</button>
+                                                </form>
+                                            @endif
+                                            <form method="POST" action="{{ auth()->user()->isAdmin() ? route('admin.classes.students.remove', [$class, $student]) : route('lecturer.classes.students.remove', [$class, $student]) }}" onsubmit="return confirm('Remove this student from class?')">
+                                                @csrf @method('DELETE')
+                                                <button class="btn btn-sm btn-outline-danger">Remove</button>
+                                            </form>
+                                            <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="collapse" data-bs-target="#resetStudent{{ $student->id }}">Reset Password</button>
+                                            @if ($class->terminal_enabled)
+                                                <form method="POST" action="{{ route('lecturer.terminal.run', $student) }}" onsubmit="this.querySelector('button[type=submit]').disabled = true;">
+                                                    @csrf
+                                                    <input type="hidden" name="command_type" value="start">
+                                                    <button type="submit" class="btn btn-sm btn-primary" {{ $isInitializing ? 'disabled' : '' }} onclick="return confirm('Start this student terminal?')">
+                                                        {{ $isInitializing ? 'Initializing...' : 'Start' }}
+                                                    </button>
+                                                </form>
+                                                <form method="POST" action="{{ route('lecturer.terminal.run', $student) }}">
+                                                    @csrf
+                                                    <input type="hidden" name="command_type" value="stop">
+                                                    <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Stop this student terminal?')">Stop</button>
+                                                </form>
+                                            @endif
+                                        </div>
+                                        <div class="collapse mt-2" id="resetStudent{{ $student->id }}">
+                                            <form method="POST" action="{{ auth()->user()->isAdmin() ? route('admin.classes.students.password', [$class, $student]) : route('lecturer.classes.students.password', [$class, $student]) }}" class="d-flex gap-2 justify-content-end">
+                                                @csrf @method('PUT')
+                                                <input type="password" name="password" class="form-control form-control-sm" placeholder="New password" required>
+                                                <input type="password" name="password_confirmation" class="form-control form-control-sm" placeholder="Confirm" required>
+                                                <button class="btn btn-sm btn-primary">Save</button>
+                                            </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        @endif
                     </tbody>
                 </table>
             </div>

@@ -604,28 +604,83 @@ body.sidebar-pinned .sidebar-main-link[data-bs-toggle="collapse"]::after {
 }
 
 .shellfix-accordion .accordion-item {
-    background: rgba(10, 18, 32, .84);
-    border: 1px solid rgba(49, 245, 255, .18) !important;
+    --bs-accordion-bg: rgba(7, 13, 26, .94);
+    --bs-accordion-active-bg: rgba(7, 13, 26, .98);
+    --bs-accordion-active-color: var(--sf-text);
+    --bs-accordion-btn-bg: rgba(7, 13, 26, .94);
+    --bs-accordion-btn-color: var(--sf-text);
+    --bs-accordion-border-color: rgba(49, 245, 255, .22);
+    background: rgba(7, 13, 26, .94);
+    border: 1px solid rgba(49, 245, 255, .22) !important;
     border-radius: .85rem;
+    box-shadow: 0 0 18px rgba(49, 245, 255, .08);
     overflow: hidden;
+    transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+}
+
+.shellfix-accordion .accordion-item:hover {
+    border-color: rgba(184, 92, 255, .38) !important;
+    box-shadow: 0 0 22px rgba(184, 92, 255, .14);
 }
 
 .shellfix-accordion .accordion-button {
-    background: linear-gradient(90deg, rgba(49, 245, 255, .1), rgba(184, 92, 255, .07));
-    color: var(--sf-text);
+    background: linear-gradient(90deg, rgba(9, 21, 38, .98), rgba(16, 18, 42, .96)) !important;
+    border: 0;
+    color: var(--sf-text) !important;
     gap: .5rem;
+    outline: 0;
+    transition: background .18s ease, box-shadow .18s ease;
 }
 
 .shellfix-accordion .accordion-button:not(.collapsed) {
-    box-shadow: 0 0 18px rgba(49, 245, 255, .12);
+    background: linear-gradient(90deg, rgba(49, 245, 255, .14), rgba(184, 92, 255, .14)) !important;
+    box-shadow: inset 3px 0 0 rgba(49, 245, 255, .88), 0 0 20px rgba(49, 245, 255, .12);
+}
+
+.shellfix-accordion .accordion-button:hover {
+    background: linear-gradient(90deg, rgba(49, 245, 255, .12), rgba(184, 92, 255, .11)) !important;
+}
+
+.shellfix-accordion .accordion-button:focus {
+    border-color: transparent;
+    box-shadow: 0 0 0 .18rem rgba(49, 245, 255, .18);
 }
 
 .shellfix-accordion .accordion-button::after {
     filter: invert(1);
+    opacity: .8;
 }
 
 .shellfix-accordion .accordion-body {
-    background: rgba(5, 10, 20, .7);
+    background: linear-gradient(180deg, rgba(5, 10, 20, .94), rgba(11, 15, 31, .92)) !important;
+    border-top: 1px solid rgba(184, 92, 255, .18);
+    color: var(--sf-text);
+}
+
+.activity-log-user {
+    color: #f8fdff;
+    font-family: Orbitron, Poppins, sans-serif;
+    font-weight: 800;
+    letter-spacing: 0;
+    text-shadow: 0 0 12px rgba(49, 245, 255, .32);
+}
+
+.activity-log-email {
+    color: rgba(186, 204, 229, .82);
+    font-size: .84rem;
+}
+
+.activity-log-count,
+.activity-log-badge {
+    background: rgba(49, 245, 255, .14) !important;
+    border: 1px solid rgba(184, 92, 255, .46);
+    color: var(--sf-cyan) !important;
+    box-shadow: 0 0 14px rgba(49, 245, 255, .16);
+}
+
+.activity-log-badge {
+    border-color: rgba(49, 245, 255, .42);
+    color: #dffcff !important;
 }
 
 .role-chip {
